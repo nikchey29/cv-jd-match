@@ -9,8 +9,9 @@ services:
       POSTGRES_PASSWORD: cvjd_local_only
       POSTGRES_DB: cvjd
     ports:
-      # Host port 5433 by default, so it does not clash with another local Postgres.
-      - "${POSTGRES_PORT:-5433}:5432"
+      # Only reachable from this machine; host port 5433 by default so it does not
+      # clash with another local Postgres.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
