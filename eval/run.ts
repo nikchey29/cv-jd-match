@@ -28,6 +28,10 @@ export const EvalCaseSchema = z.object({
     maxScore: z.number().optional(),
     /** Keywords: any requirement mentioning one must not be shown as met or partly met. */
     notMet: z.array(z.string()).optional(),
+    /** At most this many quotes may still be ungrounded after the repair pass. */
+    maxUngrounded: z.number().optional(),
+    /** Keywords that must each appear in the "Not checkable from a CV" (trait) list. */
+    traits: z.array(z.string()).optional(),
   }),
 });
 export type EvalCase = z.infer<typeof EvalCaseSchema>;
@@ -40,7 +44,14 @@ export interface CaseResult {
   /** The first answer was already schema-valid. */
   firstAttemptValid: boolean;
   score: number | null;
+  /** Quotes not found in the CV before the repair pass. */
+  initialUngroundedCount: number | null;
+  /** Quotes still not found after the repair pass. */
   ungroundedCount: number | null;
+  /** Requirements shown as unverified (part of ungroundedCount). */
+  unverifiedCount: number | null;
+  traitCount: number | null;
+  repairStatus: AnalysisResult["repair"]["status"] | null;
   unsupportedRewriteCount: number | null;
   latencyMs: number;
   expectationMet: boolean;
@@ -52,7 +63,7 @@ export interface CaseResult {
 /** Compare one result to the case's expectations. Returns the reasons it failed, if any. */
 export function checkExpectations(evalCase: EvalCase, result: AnalysisResult): string[] {
   const notes: string[] = [];
-  const { minScore, maxScore, notMet } = evalCase.expect;
+  const { minScore, maxScore, notMet, maxUngrounded, traits } = evalCase.expect;
   if ((minScore !== undefined || maxScore !== undefined) && result.score === null) notes.push("no score");
   if (minScore !== undefined && result.score !== null && result.score < minScore)
     notes.push(`score ${result.score} < ${minScore}`);
@@ -64,6 +75,12 @@ export function checkExpectations(evalCase: EvalCase, result: AnalysisResult): s
     );
     if (wronglyMet) notes.push(`"${keyword}" marked ${wronglyMet.status}`);
   }
+  if (maxUngrounded !== undefined && result.ungroundedCount > maxUngrounded)
+    notes.push(`${result.ungroundedCount} ungrounded > ${maxUngrounded}`);
+  for (const keyword of traits ?? []) {
+    if (!result.traits.some((t) => t.toLowerCase().includes(keyword.toLowerCase())))
+      notes.push(`"${keyword}" not listed as a trait`);
+  }
   return notes;
 }
 
@@ -72,6 +89,7 @@ function mean(values: number[]): number | null {
 }
 
 const fmt = (value: number | null, digits = 0) => (value === null ? "–" : value.toFixed(digits));
+const sum = (values: Array<number | null>) => values.reduce<number>((a, b) => a + (b ?? 0), 0);
 
 /** Build the Markdown report from case results. */
 export function toMarkdown(results: CaseResult[], model: string, date: string): string {
@@ -79,7 +97,8 @@ export function toMarkdown(results: CaseResult[], model: string, date: string): 
   const rows = results.map(
     (r) =>
       `| ${r.id} | ${r.category} | ${r.schemaValid ? "yes" : "no"} | ${r.firstAttemptValid ? "yes" : "no"} | ` +
-      `${fmt(r.ungroundedCount)} | ${fmt(r.unsupportedRewriteCount)} | ${r.latencyMs} | ${fmt(r.score)} | ` +
+      `${fmt(r.initialUngroundedCount)} | ${fmt(r.ungroundedCount)} | ${r.repairStatus ?? "–"} | ${fmt(r.traitCount)} | ` +
+      `${fmt(r.unsupportedRewriteCount)} | ${r.latencyMs} | ${fmt(r.score)} | ` +
       `${r.expectationMet ? "pass" : "fail"}${r.expectationNotes.length ? ` (${r.expectationNotes.join("; ")})` : ""} |`,
   );
   return [
@@ -87,15 +106,16 @@ export function toMarkdown(results: CaseResult[], model: string, date: string): 
     "",
     `Model: \`${model}\` · Run: ${date} · Cases: ${results.length}`,
     "",
-    "| Case | Category | Schema-valid | Valid on 1st try | Ungrounded quotes | Unsupported rewrites | Latency (ms) | Score | Expectation |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Case | Category | Schema-valid | Valid on 1st try | Ungrounded before repair | Ungrounded after repair | Repair | Traits | Unsupported rewrites | Latency (ms) | Score | Expectation |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
     "",
     "## Summary",
     "",
     `- Schema-valid rate: ${valid.length}/${results.length}`,
     `- Valid on first try: ${results.filter((r) => r.firstAttemptValid).length}/${results.length}`,
-    `- Ungrounded quotes per case (mean): ${fmt(mean(valid.map((r) => r.ungroundedCount ?? 0)), 2)}`,
+    `- Ungrounded quotes, total before / after repair: ${sum(valid.map((r) => r.initialUngroundedCount))} / ${sum(valid.map((r) => r.ungroundedCount))}`,
+    `- Ungrounded quotes after repair per case (mean): ${fmt(mean(valid.map((r) => r.ungroundedCount ?? 0)), 2)}`,
     `- Latency (mean ms): ${fmt(mean(valid.map((r) => r.latencyMs)))}`,
     `- Expectations met: ${results.filter((r) => r.expectationMet).length}/${results.length}`,
     "",
@@ -137,7 +157,11 @@ async function main(): Promise<void> {
         schemaValid: true,
         firstAttemptValid: result.attempts === 1,
         score: result.score,
+        initialUngroundedCount: result.initialUngroundedCount,
         ungroundedCount: result.ungroundedCount,
+        unverifiedCount: result.requirements.filter((r) => r.status === "unverified").length,
+        traitCount: result.traits.length,
+        repairStatus: result.repair.status,
         unsupportedRewriteCount: result.unsupportedRewriteCount,
         latencyMs: Math.round(performance.now() - started),
         expectationMet: notes.length === 0,
@@ -152,7 +176,11 @@ async function main(): Promise<void> {
         schemaValid: false,
         firstAttemptValid: false,
         score: null,
+        initialUngroundedCount: null,
         ungroundedCount: null,
+        unverifiedCount: null,
+        traitCount: null,
+        repairStatus: null,
         unsupportedRewriteCount: null,
         latencyMs: Math.round(performance.now() - started),
         expectationMet: false,
@@ -162,7 +190,7 @@ async function main(): Promise<void> {
     }
     const last = results.at(-1)!;
     console.info(
-      `[${index + 1}/${cases.length}] ${last.id}: ${last.error ?? `score ${last.score}, ungrounded ${last.ungroundedCount}, ${last.latencyMs} ms, expectation ${last.expectationMet ? "pass" : "fail"}`}`,
+      `[${index + 1}/${cases.length}] ${last.id}: ${last.error ?? `score ${last.score}, ungrounded ${last.initialUngroundedCount} -> ${last.ungroundedCount} (repair ${last.repairStatus}), traits ${last.traitCount}, ${last.latencyMs} ms, expectation ${last.expectationMet ? "pass" : "fail"}${last.expectationNotes.length ? ` (${last.expectationNotes.join("; ")})` : ""}`}`,
     );
   }
 

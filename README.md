@@ -48,8 +48,11 @@ flowchart TD
     P -- no, first time --> L2[Ask once more] --> P2{Valid?}
     P2 -- no --> E502[502: invalid answer twice]
     P -- yes --> GC
-    P2 -- yes --> GC[Grounding check<br/>every quote must be in the CV]
-    GC --> SC[Score in code<br/>met 1, partly 0.5, not met 0]
+    P2 -- yes --> U{Any quote not<br/>found in the CV?}
+    U -- yes --> RP[One repair call: only those items,<br/>verbatim quote or &quot;none&quot;]
+    RP --> GC
+    U -- no --> GC[Grounding check after normalising PDF text<br/>still missing → unverified; traits set apart]
+    GC --> SC[Score in code over checked skills<br/>met 1, partly 0.5, not met 0]
     SC --> DB[Save one row: id, created_at, score,<br/>requirement_count, ungrounded_count, latency_ms, model]
     DB --> R[200: result JSON]
 ```
@@ -100,7 +103,7 @@ The integration tests create a throw-away schema, run the migration in it and dr
 ## Deploy on Netlify
 
 1. Create a free Neon project at <https://neon.com> and copy its **pooled** connection string (it contains `-pooler` and `sslmode=require`).
-2. Apply the migration to Neon once, from your machine:
+2. Apply the migrations to Neon from your machine (run it again after pulling a change that adds a file to `db/`; already-applied files are skipped):
    ```bash
    DATABASE_URL='<your Neon connection string>' npm run migrate
    ```
@@ -153,9 +156,13 @@ To switch models, set `LLM_MODEL`; choose one Groq lists for strict structured o
 
 ## How the important parts work
 
-- **Grounding check** (`lib/grounding.ts`). Every evidence quote must appear in the CV, compared case-insensitively with all whitespace collapsed. A met or partly met requirement with a missing quote is dropped and counted in `ungrounded_count`. It still counts as *not met* in the score, so an invented quote can never raise the score. Rewrites must quote an existing CV bullet in `original`, and are checked the same way.
+- **Text normalisation** (`lib/grounding.ts`). Before a quote is looked up, both the quote and the CV go through Unicode NFKC (ligatures such as "ﬁ" become "fi", non-breaking spaces become spaces). Then soft hyphens and zero-width characters are removed, curly quotes and all dashes become plain ASCII, a word split by a hyphen at a line break is joined, bullet characters become spaces, every whitespace run becomes one space, and the text is lower-cased. Punctuation at the very ends of a quote is ignored. This is what makes quotes from a CV pasted out of a PDF match.
+- **Prompt rules** (`netlify/lib/prompt.ts`). Evidence must be one contiguous span of at most 25 words, copied verbatim from the CV, with no ellipsis and no paraphrase. Each requirement is labelled `kind: "skill"` or `"trait"`.
+- **Repair pass** (`lib/repair.ts`, `netlify/lib/analyze.ts`). If any met or partly met evidence quote, or any rewrite `original`, is not in the CV, the app makes **one** follow-up call. It sends the CV plus only those items and asks for a corrected verbatim quote or `"none"`. Corrected quotes are checked again; `"none"` withdraws the claim, so the requirement becomes *not met* or the rewrite is removed. The repair call uses its own strict JSON schema and the same HTTP 429 retry handling. It never fails the request: if it errors, answers invalid JSON, or the first call already took over 30 s, the items stay as they were.
+- **Grounding check** (`lib/grounding.ts`). It runs after the repair pass. A met or partly met requirement whose quote is still not in the CV becomes **unverified**: it is shown in its own section without the quote and left out of the score, so an invented quote can never raise the score. A rewrite whose `original` is still not in the CV is hidden. Both are counted in `ungrounded_count`, which therefore means "quotes still ungrounded after the repair pass". (Rows saved before migration 002 counted quotes before any repair.)
+- **Traits** (`lib/grounding.ts`). A requirement labelled `trait`, such as "self-starter" or "excellent communication skills", cannot be proven by a CV quote. It is listed under "Not checkable from a CV", skipped by the repair pass and the grounding check, and never scored, whatever status the model gave it.
 - **Rewrite fact check** (an extra safeguard). A rewrite is hidden when it adds a number not in the CV, or a word from the JD that the CV does not contain (for example "Kubernetes"). Hidden rewrites are counted separately as `unsupportedRewriteCount`; they are not stored.
-- **Score** (`lib/scoring.ts`). `round(100 × (met + 0.5 × partly met) / all requirements)`. No requirements gives 0.
+- **Score** (`lib/scoring.ts`). `round(100 × (met + 0.5 × partly met) / checked requirements)`, where checked means skills that are met, partly met or not met. Unverified requirements and traits are in neither the numerator nor the denominator. If nothing is left to check, there is no score (`null`, stored as NULL).
 - **Retries** (`netlify/lib/llm.ts`). HTTP 429 → wait (Groq's `retry-after`, else 2 s then 4 s, max 10 s each) and retry up to 2 times, then "busy, try again in a minute" (503). Invalid JSON → ask once more, then 502.
 - **Token budget** (`netlify/lib/analyze.ts`). Groq's free tier rejects any single request over 8,000 tokens per minute. Two 20,000-character inputs are about 10,000 tokens, so the app estimates tokens (4 characters ≈ 1 token) and refuses prompts over 6,000 with a clear message before calling Groq.
 - **Rate limit per IP.** Netlify's built-in rate limiting (in each function's `config`) is enforced at the edge in production: 10/min for match, 30/min for feedback, 60/min for stats. A small in-memory limiter does the same per function instance, which also works under `netlify dev`.
@@ -163,13 +170,15 @@ To switch models, set `LLM_MODEL`; choose one Groq lists for strict structured o
 
 ## Evaluation method
 
-`eval/cases/` has 10 synthetic JD + CV pairs that I wrote, with no real people:
+`eval/cases/` has 12 synthetic JD + CV pairs that I wrote, with no real people:
 
 | Category | Cases | What a good result looks like |
 | --- | --- | --- |
 | Strong match | 01–03 | score ≥ 70 |
 | Weak match | 04–06 | score ≤ 40 |
 | Hallucination trap | 07–10 | listed skills must **not** be marked met or partly met: the CV only *wants to learn* them (07), a teammate did the work (08), the CV contains a prompt-injection line (09), or the CV has a similar but different tool (10) |
+| PDF paste (regression) | 11 | a strong CV full of PDF artefacts (ligatures, soft hyphens, words split at line breaks, bullet glyphs, curly quotes, en dashes, non-breaking and zero-width spaces): score ≥ 70 and **0** quotes still ungrounded |
+| Traits (regression) | 12 | "self-starter", "communication", "passion" and "team player" must be listed as not checkable from a CV, and Tableau must not be met |
 
 Run it with your key set:
 
@@ -180,7 +189,7 @@ npm run eval
 This runs every case through the same pipeline as `/api/match`, against the real Groq API, but without touching the database. Cases are paced 20 seconds apart to stay inside the free tier's 8,000 tokens/minute. It writes `eval/results.json` and `eval/RESULTS.md`, which record per case:
 
 - schema-valid (after at most one retry) and valid on the first try
-- ungrounded quotes, and unsupported rewrites
+- ungrounded quotes before and after the repair pass, the repair outcome, the number of traits, and unsupported rewrites
 - latency in milliseconds and the score
 - whether the case expectation passed
 
@@ -200,7 +209,10 @@ Checked on 2026-11-14. Free tiers change, so re-check before relying on these.
 ## Limitations
 
 - **A quote can be real and still not prove the requirement.** The grounding check proves the quote exists in the CV, not that it supports the requirement. For example, "I would love to learn Kubernetes" could be quoted as *partly met*. The hallucination-trap eval cases measure this.
-- **Exact matching is strict.** Typographic differences such as curly versus straight quotes, or different dash characters, make a real quote look ungrounded.
+- **Matching is still literal after normalisation.** A quote that reorders words, fixes a typo or joins two bullets is not found. The repair pass gives the model one chance to correct it; after that the requirement is unverified.
+- **Unverified requirements are left out of the score.** That keeps an invented quote from raising the score, but a requirement the CV really does meet can also drop out if the model quotes it badly twice, which raises or lowers the score depending on the rest.
+- **The skill/trait split is the model's call.** A trait labelled as a skill is judged and scored like any skill; a skill labelled as a trait is not scored.
+- **The repair pass costs a second call** when it runs, which uses more of the free token budget and adds latency.
 - **The rewrite fact check is a heuristic.** It can hide a fair rewrite that uses a JD word in a harmless way, and it cannot catch invented facts that use words found in neither the JD nor the CV.
 - **Scores vary.** The LLM decides how to split the JD into requirements, so the denominator, and therefore the score, can change between runs.
 - **The token estimate is rough** (4 characters per token). Text that tokenises badly can still hit Groq's limit; the app then shows the same "too long" message.
@@ -220,18 +232,19 @@ Checked on 2026-11-14. Free tiers change, so re-check before relying on these.
 | Metric | Value |
 | --- | --- |
 | Eval run date / model | _TBD_ |
-| Schema-valid rate (10 cases) | _TBD_ |
+| Schema-valid rate (12 cases) | _TBD_ |
 | Valid on first try | _TBD_ |
-| Mean ungrounded quotes per case | _TBD_ |
+| Ungrounded quotes, total before / after repair | _TBD_ |
+| Mean ungrounded quotes per case (after repair) | _TBD_ |
 | Mean latency (ms) | _TBD_ |
-| Expectations met (strong / weak / trap) | _TBD_ |
+| Expectations met (strong / weak / trap / regression) | _TBD_ |
 | Live runs / share with feedback / share helpful | _TBD_ |
 
 ## Project layout
 
 ```
 src/                  React page (App, components, API client, CSS)
-lib/                  Shared code: zod schemas, scoring, grounding check, limits
+lib/                  Shared code: zod schemas, scoring, grounding check, repair pass, limits
 netlify/functions/    match.ts, feedback.ts, stats.ts (one HTTP endpoint each)
 netlify/lib/          Server helpers: LLM client, pipeline, prompt, db, logging, rate limit
 db/                   SQL migrations

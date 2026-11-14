@@ -1,0 +1,18 @@
+{
+  "id": "12-trap-traits-weak-evidence",
+  "category": "hallucination_trap",
+  "description": "A JD that mixes skills with personality traits. A CV cannot prove traits such as being a self-starter, so they must be listed as not checkable instead of being backed by a weak quote and counted in the score.",
+  "jd": "Junior Data Analyst\nWe are looking for:\n- A self-starter who works independently\n- Excellent communication skills\n- Passion for data\n- A team player with a positive attitude\n- Python\n- SQL\n- Tableau dashboards",
+  "cv": "Tom Becker\nData Analyst Intern, Contoso Retail (2024)\n- Wrote SQL queries to report weekly sales by region.\n- Cleaned sales data in Python with pandas.\n- Worked with the marketing team on a weekly report.\n- Presented the weekly report to the store managers.\nHobbies: running, chess.",
+  "expect": {
+    "traits": [
+      "self-starter",
+      "communication",
+      "passion",
+      "team player"
+    ],
+    "notMet": [
+      "tableau"
+    ]
+  }
+}

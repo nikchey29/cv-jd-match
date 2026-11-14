@@ -1,0 +1,11 @@
+{
+  "id": "11-pdf-paste-strong",
+  "category": "strong",
+  "description": "A strong CV pasted from a PDF: ligatures (fi, fl), soft hyphens, words split by a hyphen at a line break, bullet characters, curly quotes, en dashes, non-breaking and zero-width spaces, and sentences wrapped across lines. Real quotes from it must not be marked ungrounded.",
+  "jd": "Machine Learning Engineer Intern\nRequirements:\n- Python\n- PyTorch\n- Fine-tuning transformer models such as BERT\n- Building data pipelines\n- Docker\n- Experiment tracking (for example MLflow)\n- Degree in computer science or a related field",
+  "cv": "PRIYA NAIR\nMachine Learning Engineer\n\nEXPERIENCE\nML Intern, Northwind Analytics   Jun 2024 – Aug 2024\n• Fine-tuned BERT models in PyTorch for support-ticket\nclassiﬁcation, raising macro-F1 from 0.71 to 0.83.\n• Built data pipe-\nlines in Python that cleaned 3 million “raw” log lines per day.\n• Packaged the training code with Docker and tracked ex-\nperiments in MLﬂow.\n• Wrote an inter­nal guide on model evaluation for the team’s analysts.\n\nPROJECTS\n▪ Sentiment classiﬁer for product reviews — Python, scikit-learn,​ FastAPI.\n\nEDUCATION\nB.Sc. Computer Science — University of Leeds, 2025\n\nSKILLS\nPython · PyTorch · SQL · Docker · MLflow · Git",
+  "expect": {
+    "minScore": 70,
+    "maxUngrounded": 0
+  }
+}
