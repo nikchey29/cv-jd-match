@@ -1,0 +1,16 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# netlify local state
+.netlify/
+
+# OS / editor noise
+.DS_Store
+*.log
