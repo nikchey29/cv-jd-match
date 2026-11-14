@@ -1,0 +1,10 @@
+{
+  "id": "05-weak-designer-vs-backend",
+  "category": "weak",
+  "description": "Graphic designer CV against a backend Java role.",
+  "jd": "Backend Developer\nRequirements:\n- Java and Spring Boot\n- Designing REST APIs\n- SQL databases\n- Writing unit tests\n- Linux and the command line",
+  "cv": "Mei Chen\nGraphic Designer, Bright Agency (2020 - present)\n- Designed brand identities and logos for 25 clients.\n- Created social media graphics in Adobe Photoshop and Illustrator.\n- Built simple landing pages in Webflow.\n- Presented design concepts to clients.",
+  "expect": {
+    "maxScore": 40
+  }
+}

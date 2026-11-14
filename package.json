@@ -41,6 +41,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts"
+    "migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
+    "eval": "node --env-file-if-exists=.env --import tsx eval/run.ts"
   }
 }

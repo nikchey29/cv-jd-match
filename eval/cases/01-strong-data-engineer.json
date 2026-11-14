@@ -1,0 +1,10 @@
+{
+  "id": "01-strong-data-engineer",
+  "category": "strong",
+  "description": "Data engineer CV that covers almost every requirement.",
+  "jd": "Data Engineer (graduate)\nWe are looking for a data engineer to build and maintain our pipelines.\nRequirements:\n- Python\n- SQL and relational databases (PostgreSQL)\n- Building ETL pipelines\n- Apache Airflow\n- Docker\n- Git and code review\nNice to have: AWS.",
+  "cv": "Priya Nair\nData Engineering Intern, Northwind Retail (Jun 2024 - Dec 2024)\n- Built ETL pipelines in Python that load sales data into PostgreSQL every night.\n- Wrote Airflow DAGs to schedule and monitor 12 daily jobs.\n- Packaged the pipelines in Docker images for the staging server.\n- Reviewed pull requests on GitHub and kept the Git history clean.\nEducation: BSc Computer Science, 2025.\nSkills: Python, SQL, PostgreSQL, Airflow, Docker, Git, AWS S3.",
+  "expect": {
+    "minScore": 70
+  }
+}

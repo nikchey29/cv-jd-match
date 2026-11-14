@@ -1,0 +1,10 @@
+{
+  "id": "06-weak-junior-vs-senior",
+  "category": "weak",
+  "description": "Junior analyst CV against a senior ML role with many requirements.",
+  "jd": "Senior Machine Learning Engineer\nRequirements:\n- 5+ years building ML systems in production\n- Leading a team of engineers\n- Distributed training on GPUs\n- MLOps: CI/CD for models, monitoring, feature stores\n- Kubernetes and Terraform\n- Python",
+  "cv": "Omar Haddad\nJunior Data Analyst, CityBank (2024 - present)\n- Built weekly Excel and Power BI reports for the finance team.\n- Wrote Python scripts to clean CSV exports.\n- Completed an online course on machine learning basics.",
+  "expect": {
+    "maxScore": 40
+  }
+}

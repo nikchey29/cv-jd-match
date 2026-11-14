@@ -1,0 +1,10 @@
+{
+  "id": "03-strong-frontend",
+  "category": "strong",
+  "description": "Front-end developer CV against a React role.",
+  "jd": "Junior Front-end Developer\nRequirements:\n- React and TypeScript\n- HTML and CSS, responsive layouts\n- Web accessibility (WCAG)\n- Unit testing (Jest or Vitest)\n- REST APIs",
+  "cv": "Ana Souza\nFront-end Developer, Pixel Studio (2023 - present)\n- Built React and TypeScript dashboards used by 300 clients.\n- Wrote responsive HTML and CSS layouts that work on phones and desktops.\n- Fixed WCAG 2.1 AA issues found in an accessibility audit.\n- Added Vitest unit tests, raising coverage from 40% to 75%.\n- Connected the UI to REST APIs built by the backend team.",
+  "expect": {
+    "minScore": 70
+  }
+}

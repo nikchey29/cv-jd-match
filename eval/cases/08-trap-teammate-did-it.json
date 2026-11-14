@@ -1,0 +1,13 @@
+{
+  "id": "08-trap-teammate-did-it",
+  "category": "hallucination_trap",
+  "description": "The required work was done by someone else on the team; the CV owner did not do it.",
+  "jd": "Data Engineer\nRequirements:\n- Apache Airflow\n- Snowflake\n- SQL",
+  "cv": "Daniel Okafor\nReporting Analyst, Globex (2023 - present)\n- Wrote SQL reports for the sales team.\n- Worked next to the data platform team, whose lead migrated our warehouse to Snowflake and set up Airflow.\n- I have not used Airflow or Snowflake myself yet.",
+  "expect": {
+    "notMet": [
+      "airflow",
+      "snowflake"
+    ]
+  }
+}

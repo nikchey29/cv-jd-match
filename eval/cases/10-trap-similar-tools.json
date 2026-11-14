@@ -1,0 +1,13 @@
+{
+  "id": "10-trap-similar-tools",
+  "category": "hallucination_trap",
+  "description": "CV has similar but different tools (PostgreSQL vs MongoDB, TensorFlow vs PyTorch).",
+  "jd": "ML Engineer\nRequirements:\n- PyTorch\n- MongoDB\n- Python\n- REST APIs",
+  "cv": "Sofia Rossi\nML Developer, DataWorks (2022 - present)\n- Trained TensorFlow models for demand forecasting in Python.\n- Stored features in PostgreSQL.\n- Exposed predictions through a REST API built with FastAPI.",
+  "expect": {
+    "notMet": [
+      "pytorch",
+      "mongodb"
+    ]
+  }
+}

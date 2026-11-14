@@ -1,0 +1,10 @@
+{
+  "id": "04-weak-retail-vs-ml",
+  "category": "weak",
+  "description": "Retail manager CV against an ML engineer role.",
+  "jd": "Machine Learning Engineer\nRequirements:\n- Python\n- PyTorch or TensorFlow\n- Deploying models to production\n- Kubernetes\n- Statistics and experiment design",
+  "cv": "Liam O'Connor\nStore Manager, FreshMart (2018 - present)\n- Managed a team of 15 staff and weekly rotas.\n- Increased store sales by 8% through better shelf layout.\n- Handled stock ordering and supplier relationships.\n- Trained new employees on customer service.",
+  "expect": {
+    "maxScore": 40
+  }
+}

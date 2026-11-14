@@ -1,0 +1,14 @@
+{
+  "id": "07-trap-wants-to-learn",
+  "category": "hallucination_trap",
+  "description": "CV only says it wants to learn the required tools; they must not be marked met.",
+  "jd": "Platform Engineer\nRequirements:\n- Kubernetes\n- Apache Spark\n- Python\n- Terraform",
+  "cv": "Grace Kim\nSoftware Developer, Acme Corp (2022 - present)\n- Wrote Python services that process customer orders.\n- Maintained the team's CI pipeline in GitHub Actions.\nInterests: I would love to learn Kubernetes, Apache Spark and Terraform in my next role.",
+  "expect": {
+    "notMet": [
+      "kubernetes",
+      "spark",
+      "terraform"
+    ]
+  }
+}

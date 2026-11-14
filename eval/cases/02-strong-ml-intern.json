@@ -1,0 +1,10 @@
+{
+  "id": "02-strong-ml-intern",
+  "category": "strong",
+  "description": "ML intern CV that matches an ML internship posting.",
+  "jd": "Machine Learning Intern\nYou will help train and evaluate models.\nRequirements:\n- Python and NumPy/pandas\n- PyTorch or scikit-learn\n- Model evaluation (precision, recall, cross-validation)\n- Experiment tracking\n- Clear written communication",
+  "cv": "Tomas Berg\nMSc Data Science student, University of Uppsala (2025 - 2027)\nProjects:\n- Trained a PyTorch text classifier on 40,000 support tickets and reported precision and recall per class.\n- Used scikit-learn and 5-fold cross-validation to compare three churn models.\n- Logged experiments with MLflow to track parameters and metrics.\n- Cleaned data with pandas and NumPy.\n- Wrote a 10-page project report and a blog post explaining the results.",
+  "expect": {
+    "minScore": 70
+  }
+}
