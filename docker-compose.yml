@@ -1,0 +1,46 @@
+# Local development: Postgres, a one-off migration, and the app via `netlify dev`.
+#   docker compose up --build      -> http://localhost:8888
+# Secrets (GROQ_API_KEY) come from your local .env file, which is never committed.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cvjd
+      POSTGRES_PASSWORD: cvjd_local_only
+      POSTGRES_DB: cvjd
+    ports:
+      # Host port 5433 by default, so it does not clash with another local Postgres.
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cvjd -d cvjd"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["npm", "run", "migrate"]
+    environment:
+      DATABASE_URL: postgres://cvjd:cvjd_local_only@db:5432/cvjd
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    ports:
+      - "8888:8888"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Always use the local database inside Docker, whatever .env says.
+      DATABASE_URL: postgres://cvjd:cvjd_local_only@db:5432/cvjd
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
