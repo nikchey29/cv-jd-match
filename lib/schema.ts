@@ -1,10 +1,7 @@
 import { z } from "zod";
+import { MAX_INPUT_CHARS, MAX_REWRITES } from "./limits";
 
-/** Maximum length of each pasted text (job description and CV). */
-export const MAX_INPUT_CHARS = 20_000;
-
-/** Maximum number of CV bullet rewrites we return. */
-export const MAX_REWRITES = 5;
+export { MAX_INPUT_CHARS, MAX_REWRITES };
 
 // ---------------------------------------------------------------------------
 // Request bodies sent by the browser
