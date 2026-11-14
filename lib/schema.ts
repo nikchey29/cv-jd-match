@@ -17,6 +17,8 @@ const pastedText = (label: string) =>
 export const MatchRequestSchema = z.object({
   jd: pastedText("Job description"),
   cv: pastedText("CV"),
+  /** Set by the "Try an example" button: the run is not saved, so it stays out of the public stats. */
+  example: z.boolean({ error: "example must be true or false." }).optional(),
 });
 export type MatchRequest = z.infer<typeof MatchRequestSchema>;
 

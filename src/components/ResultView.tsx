@@ -44,34 +44,57 @@ interface Props {
   onFeedbackSent: () => void;
 }
 
+const GROUPS: DisplayStatus[] = ["met", "partly_met", "not_met", "unverified"];
+
 export function ResultView({ result, onFeedbackSent }: Props) {
-  const checked = result.requirements.filter((r) => r.status !== "unverified");
-  const unverified = result.requirements.filter((r) => r.status === "unverified");
+  const byStatus = (status: DisplayStatus) => result.requirements.filter((r) => r.status === status);
+  const unverified = byStatus("unverified");
 
   return (
     <section className="results" aria-labelledby="results-heading">
       <h2 id="results-heading">Result</h2>
 
-      {result.score === null ? (
-        <p className="score-none">No score: none of the requirements could be checked against your CV.</p>
-      ) : (
-        <>
-          <div className="score" role="img" aria-label={`Match score ${result.score} out of 100`}>
-            <span className="score-number">{result.score}</span>
-            <span className="score-max">/ 100</span>
+      <div className="summary">
+        {result.score === null ? (
+          <p className="score-none">No score: none of the requirements could be checked against your CV.</p>
+        ) : (
+          <div className="score">
+            <p className="score-value">
+              <span className="score-number">{result.score}</span>
+              <span className="score-max">/ 100</span>
+            </p>
+            <div className="bar" role="img" aria-label={`Match score ${result.score} out of 100`}>
+              <div className="bar-fill" style={{ width: `${result.score}%` }} />
+            </div>
           </div>
-          <p className="hint">
-            Score = met requirements count 1, partly met count 0.5, not met count 0, divided by the{" "}
-            {plural(result.scoredCount, "requirement", "requirements")} checked against your CV
-            {unverified.length > 0 && (
-              <>. {plural(unverified.length, "unverified requirement is", "unverified requirements are")} left out</>
-            )}
-            {result.traits.length > 0 && (
-              <>. {plural(result.traits.length, "personal quality is", "personal qualities are")} not scored</>
-            )}
-            .
-          </p>
-        </>
+        )}
+        <ul className="counts" aria-label="Requirement counts">
+          {GROUPS.map((status) => (
+            <li key={status} className={`req-${status}`}>
+              <span className="badge">
+                <span aria-hidden="true">{STATUS_ICON[status]}</span> {STATUS_LABEL[status]}
+              </span>{" "}
+              <strong>{byStatus(status).length}</strong>
+            </li>
+          ))}
+          <li className="req-trait">
+            <span className="badge">Not checkable</span> <strong>{result.traits.length}</strong>
+          </li>
+        </ul>
+      </div>
+
+      {result.score !== null && (
+        <p className="hint">
+          Score = met requirements count 1, partly met count 0.5, not met count 0, divided by the{" "}
+          {plural(result.scoredCount, "requirement", "requirements")} checked against your CV
+          {unverified.length > 0 && (
+            <>. {plural(unverified.length, "unverified requirement is", "unverified requirements are")} left out</>
+          )}
+          {result.traits.length > 0 && (
+            <>. {plural(result.traits.length, "personal quality is", "personal qualities are")} not scored</>
+          )}
+          .
+        </p>
       )}
 
       {result.ungroundedCount > 0 && (
@@ -81,23 +104,33 @@ export function ResultView({ result, onFeedbackSent }: Props) {
         </p>
       )}
 
-      <h3>Requirements</h3>
-      {checked.length > 0 ? <RequirementList items={checked} /> : <p>No requirements could be checked.</p>}
-
-      {unverified.length > 0 && (
-        <>
-          <h3>Unverified</h3>
-          <p className="hint">
-            The AI said your CV shows these, but the text it quoted is not in your CV, so they could not be checked.
-            Look for them in your CV yourself.
-          </p>
-          <RequirementList items={unverified} />
-        </>
-      )}
+      {result.requirements.length === 0 && <p>No requirements could be checked.</p>}
+      {GROUPS.map((status) => {
+        const items = byStatus(status);
+        if (items.length === 0) return null;
+        return (
+          <section key={status} className="group" aria-labelledby={`group-${status}`}>
+            <h3 id={`group-${status}`}>
+              {STATUS_LABEL[status]} <span className="group-count">({items.length})</span>
+            </h3>
+            {status === "unverified" && (
+              <p className="hint">
+                The AI said your CV shows these, but the text it quoted is not in your CV, so they could not be
+                checked. Look for them in your CV yourself.
+              </p>
+            )}
+            <RequirementList items={items} />
+          </section>
+        );
+      })}
 
       {result.traits.length > 0 && (
-        <>
-          <h3>Not checkable from a CV</h3>
+        <details className="group">
+          <summary>
+            <h3>
+              Not checkable from a CV <span className="group-count">({result.traits.length})</span>
+            </h3>
+          </summary>
           <p className="hint">
             Personal qualities like these cannot be proven by a quote from a CV, so they are not scored. Show them
             through examples in your cover letter or interview.
@@ -107,7 +140,7 @@ export function ResultView({ result, onFeedbackSent }: Props) {
               <li key={index}>{trait}</li>
             ))}
           </ul>
-        </>
+        </details>
       )}
 
       <h3>Gaps</h3>
@@ -152,7 +185,7 @@ export function ResultView({ result, onFeedbackSent }: Props) {
       {result.id ? (
         <Feedback key={result.id} id={result.id} onSent={onFeedbackSent} />
       ) : (
-        <p className="hint">Feedback is unavailable for this result because it could not be saved.</p>
+        <p className="hint">Feedback is unavailable for this result because it was not saved (example runs are never saved).</p>
       )}
     </section>
   );

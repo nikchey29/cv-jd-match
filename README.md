@@ -1,5 +1,7 @@
 # CV–JD Match
 
+**Live app:** <https://cv-jd-match.netlify.app>
+
 Paste a job description (JD) and a CV as plain text. The app returns:
 
 - a **match score** from 0 to 100, computed in code (not by the LLM)
@@ -8,7 +10,7 @@ Paste a job description (JD) and a CV as plain text. The app returns:
 - a list of **gaps**
 - up to 5 **suggested CV bullet rewrites** that only reuse facts already in the CV
 
-Users can rate each result with thumbs up or down, and the page footer shows live usage stats.
+Users can rate each result with thumbs up or down, and the page footer shows live usage stats. Runs started with the **Try an example** button are not saved, so they do not count in those stats.
 
 > **Privacy:** Your text is sent to an LLM to produce the result and is not stored. Only scores and feedback are saved.
 
@@ -227,18 +229,24 @@ Checked on 2026-11-14. Free tiers change, so re-check before relying on these.
 
 ## Results
 
-> Placeholders. Fill these in from `eval/RESULTS.md` after running `npm run eval`, and from the stats footer of the deployed site. Do not estimate them.
+These are **single runs** of `npm run eval` on 2026-11-14, one before and one after the grounding fixes, with the same 12 cases and model. LLM output varies between runs, so treat them as one sample each, not as averages. Full tables: [`eval/RESULTS.md`](eval/RESULTS.md) (after) and [`eval/baseline/RESULTS.md`](eval/baseline/RESULTS.md) (before).
 
-| Metric | Value |
-| --- | --- |
-| Eval run date / model | _TBD_ |
-| Schema-valid rate (12 cases) | _TBD_ |
-| Valid on first try | _TBD_ |
-| Ungrounded quotes, total before / after repair | _TBD_ |
-| Mean ungrounded quotes per case (after repair) | _TBD_ |
-| Mean latency (ms) | _TBD_ |
-| Expectations met (strong / weak / trap / regression) | _TBD_ |
-| Live runs / share with feedback / share helpful | _TBD_ |
+| Metric | Before (commit `89e30d2`) | After (current code) |
+| --- | --- | --- |
+| Run date / model | 2026-11-14 / `openai/gpt-oss-120b` | 2026-11-14 / `openai/gpt-oss-120b` |
+| Schema-valid rate (12 cases) | 12/12 | 12/12 |
+| Valid on first try | 12/12 | 12/12 |
+| Ungrounded quotes, total | 11 (no repair pass) | 0 before repair / 0 after |
+| Mean ungrounded quotes per case | 0.92 | 0.00 |
+| Mean latency (ms) | 1,608 | 1,821 |
+| Expectations met (strong / weak / trap) | 11/12 (3/4, 3/3, 5/5 \*) | 12/12 (4/4, 3/3, 5/5) |
+| Live runs / share with feedback / share helpful | _TBD_ | _TBD_ |
+
+Case 11 (the PDF paste) and case 12 (traits) count as strong and trap. All 11 ungrounded quotes before the fixes came from case 11, which scored 14 instead of at least 70. After the fixes it scored 100. The repair pass did not run in the "after" eval, because no quote was missing once the text was normalised. Its behaviour is covered by unit tests with mocked answers only.
+
+\* The old runner could not check the trait expectation, so case 12's "pass" before the fixes is unchecked (see the note in the baseline file).
+
+Live app: <https://cv-jd-match.netlify.app>
 
 ## Project layout
 

@@ -22,8 +22,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function postMatch(jd: string, cv: string): Promise<MatchResponse> {
-  return request<MatchResponse>("/api/match", { method: "POST", body: JSON.stringify({ jd, cv }) });
+export function postMatch(jd: string, cv: string, example = false): Promise<MatchResponse> {
+  return request<MatchResponse>("/api/match", { method: "POST", body: JSON.stringify({ jd, cv, example }) });
 }
 
 export function postFeedback(id: string, helpful: boolean): Promise<{ ok: true }> {

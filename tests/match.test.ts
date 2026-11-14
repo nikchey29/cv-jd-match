@@ -101,6 +101,20 @@ describe("POST /api/match handler (mocked LLM)", () => {
     expect(database.queries[0]!.params).toEqual([body.id, null, 1, 1, 850, "test-model"]);
   });
 
+  it("does not save example runs, so they stay out of the public stats", async () => {
+    const res = await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV, example: true }), context);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as MatchResponse;
+    expect(body.score).toBe(63);
+    expect(body.id).toBeNull();
+    expect(database.queries).toHaveLength(0);
+  });
+
+  it("rejects a non-boolean example flag with 400", async () => {
+    const res = await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV, example: "yes" }), context);
+    expect(res.status).toBe(400);
+  });
+
   it("never sends the JD or CV text to the database", async () => {
     await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV }), context);
     const sent = JSON.stringify(database.queries);

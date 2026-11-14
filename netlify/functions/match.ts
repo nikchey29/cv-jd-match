@@ -79,13 +79,15 @@ export function createMatchHandler(deps: MatchDeps) {
     try {
       const result = await analyzeMatch(input.data.jd, input.data.cv, llm.complete);
       const latencyMs = Math.round(deps.now() - started);
-      const id = await saveRun(deps, {
-        score: result.score,
-        requirementCount: result.requirementCount,
-        ungroundedCount: result.ungroundedCount,
-        latencyMs,
-        model: llm.model,
-      });
+      const id = input.data.example
+        ? null
+        : await saveRun(deps, {
+            score: result.score,
+            requirementCount: result.requirementCount,
+            ungroundedCount: result.ungroundedCount,
+            latencyMs,
+            model: llm.model,
+          });
       const response: MatchResponse = {
         id,
         score: result.score,
@@ -116,6 +118,7 @@ export function createMatchHandler(deps: MatchDeps) {
         repairError: result.repair.errorName,
         latencyMs,
         saved: id !== null,
+        example: input.data.example === true,
       });
       return json(200, response);
     } catch (error) {

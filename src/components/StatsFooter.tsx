@@ -7,10 +7,13 @@ function percent(value: number | null): string {
 interface Props {
   stats: StatsResponse | null;
   failed: boolean;
+  repoUrl: string;
 }
 
+const PORTFOLIO_URL = "https://chaithanyavemuri.xyz/";
+
 /** Live usage numbers from /api/stats. */
-export function StatsFooter({ stats, failed }: Props) {
+export function StatsFooter({ stats, failed, repoUrl }: Props) {
   let content: string;
   if (failed) content = "Usage stats are unavailable right now.";
   else if (!stats) content = "Loading usage stats…";
@@ -25,6 +28,9 @@ export function StatsFooter({ stats, failed }: Props) {
     <footer className="stats">
       <h2 className="visually-hidden">Usage statistics</h2>
       <p aria-live="polite">{content}</p>
+      <p>
+        Built by Chaithanya Vemuri · <a href={repoUrl}>GitHub repo</a> · <a href={PORTFOLIO_URL}>Portfolio</a>
+      </p>
     </footer>
   );
 }
