@@ -75,6 +75,40 @@ export function parseLlmOutput(raw: string): ParseResult {
 }
 
 // ---------------------------------------------------------------------------
+// The repair pass: one follow-up call for quotes that were not found in the CV.
+// ---------------------------------------------------------------------------
+
+/** What the model answers for an item whose quote could not be found. */
+export const REPAIR_NONE = "none";
+
+export const RepairOutputSchema = z.strictObject({
+  answers: z.array(
+    z.strictObject({
+      /** The item number we sent. */
+      id: z.number().int(),
+      /** A corrected verbatim quote from the CV, or "none". */
+      quote: z.string(),
+    }),
+  ),
+});
+export type RepairOutput = z.infer<typeof RepairOutputSchema>;
+
+export const repairOutputJsonSchema = z.toJSONSchema(RepairOutputSchema, { target: "draft-7" }) as Record<
+  string,
+  unknown
+>;
+
+/** Parse the repair answer, or return null when it is not valid. */
+export function parseRepairOutput(raw: string): RepairOutput | null {
+  try {
+    const result = RepairOutputSchema.safeParse(JSON.parse(raw));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Response bodies returned to the browser
 // ---------------------------------------------------------------------------
 

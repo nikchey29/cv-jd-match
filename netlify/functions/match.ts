@@ -103,8 +103,13 @@ export function createMatchHandler(deps: MatchDeps) {
         score: response.score,
         requirementCount: response.requirementCount,
         ungroundedCount: response.ungroundedCount,
+        initialUngroundedCount: result.initialUngroundedCount,
         unsupportedRewriteCount: response.unsupportedRewriteCount,
         attempts: result.attempts,
+        repairStatus: result.repair.status,
+        repairFixed: result.repair.fixed,
+        repairRetracted: result.repair.retracted,
+        repairError: result.repair.errorName,
         latencyMs,
         saved: id !== null,
       });

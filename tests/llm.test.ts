@@ -1,6 +1,15 @@
 import { APIError } from "openai";
 import { describe, expect, it, vi } from "vitest";
-import { LlmBusyError, retryDelayMs, withRateLimitRetry, type RateLimitRetryOptions } from "../netlify/lib/llm";
+import {
+  createGroqComplete,
+  defaultRetryOptions,
+  LlmBusyError,
+  MATCH_FORMAT,
+  REPAIR_FORMAT,
+  retryDelayMs,
+  withRateLimitRetry,
+  type RateLimitRetryOptions,
+} from "../netlify/lib/llm";
 
 function rateLimitError(retryAfter?: string): APIError {
   const headers = new Headers(retryAfter === undefined ? {} : { "retry-after": retryAfter });
@@ -54,5 +63,64 @@ describe("retryDelayMs", () => {
 
   it("never waits longer than maxDelayMs", () => {
     expect(retryDelayMs(rateLimitError("3600"), 0, options())).toBe(10_000);
+  });
+});
+
+describe("createGroqComplete (fake fetch, no network)", () => {
+  const completion = (content: string) =>
+    new Response(
+      JSON.stringify({
+        id: "c1",
+        object: "chat.completion",
+        created: 0,
+        model: "openai/gpt-oss-120b",
+        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  const tooMany = () =>
+    new Response(JSON.stringify({ error: { message: "rate limited" } }), {
+      status: 429,
+      headers: { "content-type": "application/json", "retry-after": "1" },
+    });
+
+  function setup(...responses: Array<() => Response>) {
+    const bodies: Array<Record<string, unknown>> = [];
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return responses.shift()!();
+    });
+    const sleep = vi.fn(async () => {});
+    const complete = createGroqComplete("test-key", "openai/gpt-oss-120b", { ...defaultRetryOptions, sleep }, fetchImpl as unknown as typeof fetch);
+    return { complete, bodies, sleep };
+  }
+
+  it("uses the match schema by default", async () => {
+    const { complete, bodies } = setup(() => completion("{}"));
+    expect(await complete([{ role: "user", content: "hi" }])).toBe("{}");
+    const format = bodies[0]!.response_format as { json_schema: { name: string; strict: boolean } };
+    expect(format.json_schema.name).toBe(MATCH_FORMAT.name);
+    expect(format.json_schema.strict).toBe(true);
+    expect(bodies[0]!.max_completion_tokens).toBe(MATCH_FORMAT.maxCompletionTokens);
+  });
+
+  it("sends the repair schema and its smaller token limit for the repair pass", async () => {
+    const { complete, bodies } = setup(() => completion('{"answers":[]}'));
+    await complete([{ role: "user", content: "hi" }], REPAIR_FORMAT);
+    const format = bodies[0]!.response_format as { json_schema: { name: string; schema: unknown } };
+    expect(format.json_schema.name).toBe("quote_repair");
+    expect(format.json_schema.schema).toEqual(REPAIR_FORMAT.schema);
+    expect(bodies[0]!.max_completion_tokens).toBe(1_500);
+  });
+
+  it("retries a rate-limited repair call using retry-after, like the main call", async () => {
+    const { complete, sleep } = setup(tooMany, () => completion('{"answers":[]}'));
+    expect(await complete([{ role: "user", content: "hi" }], REPAIR_FORMAT)).toBe('{"answers":[]}');
+    expect(sleep).toHaveBeenCalledWith(1_000);
+  });
+
+  it("gives up with LlmBusyError after 2 retries", async () => {
+    const { complete } = setup(tooMany, tooMany, tooMany);
+    await expect(complete([{ role: "user", content: "hi" }], REPAIR_FORMAT)).rejects.toBeInstanceOf(LlmBusyError);
   });
 });

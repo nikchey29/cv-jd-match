@@ -1,6 +1,6 @@
 import OpenAI, { APIError } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { llmOutputJsonSchema } from "../../lib/schema";
+import { llmOutputJsonSchema, repairOutputJsonSchema } from "../../lib/schema";
 
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
@@ -10,8 +10,32 @@ export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
  */
 export const DEFAULT_MODEL = "openai/gpt-oss-120b";
 
-/** Sends chat messages to the LLM and returns the raw text of its answer. */
-export type CompleteFn = (messages: ChatCompletionMessageParam[]) => Promise<string>;
+/** The JSON schema the answer must follow, and how long the answer may be. */
+export interface ResponseFormat {
+  name: string;
+  schema: Record<string, unknown>;
+  maxCompletionTokens: number;
+}
+
+/** The main analysis. */
+export const MATCH_FORMAT: ResponseFormat = {
+  name: "match_result",
+  schema: llmOutputJsonSchema,
+  maxCompletionTokens: 4_000,
+};
+
+/** The repair pass: a few short quotes, so a much smaller answer. */
+export const REPAIR_FORMAT: ResponseFormat = {
+  name: "quote_repair",
+  schema: repairOutputJsonSchema,
+  maxCompletionTokens: 1_500,
+};
+
+/**
+ * Sends chat messages to the LLM and returns the raw text of its answer.
+ * `format` defaults to MATCH_FORMAT.
+ */
+export type CompleteFn = (messages: ChatCompletionMessageParam[], format?: ResponseFormat) => Promise<string>;
 
 /** Groq kept answering HTTP 429 (rate limited) after all retries. */
 export class LlmBusyError extends Error {
@@ -90,22 +114,31 @@ export function createGroqComplete(
   apiKey: string,
   model: string,
   retryOptions: RateLimitRetryOptions = defaultRetryOptions,
+  /** Only for tests: replaces the network call. */
+  fetchImpl?: typeof fetch,
 ): CompleteFn {
   // maxRetries: 0 turns off the SDK's own retries; withRateLimitRetry handles 429s.
-  const client = new OpenAI({ apiKey, baseURL: GROQ_BASE_URL, maxRetries: 0, timeout: 25_000 });
+  const client = new OpenAI({
+    apiKey,
+    baseURL: GROQ_BASE_URL,
+    maxRetries: 0,
+    timeout: 25_000,
+    ...(fetchImpl ? { fetch: fetchImpl } : {}),
+  });
   const isGptOss = model.startsWith("openai/gpt-oss");
 
-  return (messages) =>
+  // Every call, the main one and the repair pass alike, goes through the same 429 handling.
+  return (messages, format = MATCH_FORMAT) =>
     withRateLimitRetry(async () => {
       try {
         const completion = await client.chat.completions.create({
           model,
           messages,
           temperature: 0,
-          max_completion_tokens: 4_000,
+          max_completion_tokens: format.maxCompletionTokens,
           response_format: {
             type: "json_schema",
-            json_schema: { name: "match_result", strict: true, schema: llmOutputJsonSchema },
+            json_schema: { name: format.name, strict: true, schema: format.schema },
           },
           // gpt-oss models think before answering; "low" keeps that short, which saves tokens.
           ...(isGptOss ? { reasoning_effort: "low" as const } : {}),

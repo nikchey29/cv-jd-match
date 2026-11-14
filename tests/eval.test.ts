@@ -14,8 +14,10 @@ function result(overrides: Partial<AnalysisResult>): AnalysisResult {
     rewrites: [],
     requirementCount: 0,
     ungroundedCount: 0,
+    initialUngroundedCount: 0,
     unsupportedRewriteCount: 0,
     attempts: 1,
+    repair: { status: "not_needed", fixed: 0, retracted: 0, errorName: null },
     ...overrides,
   };
 }
