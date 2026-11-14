@@ -9,6 +9,7 @@ const casesDir = path.join(import.meta.dirname, "..", "eval", "cases");
 function result(overrides: Partial<AnalysisResult>): AnalysisResult {
   return {
     score: 50,
+    scoredCount: 0,
     requirements: [],
     gaps: [],
     rewrites: [],

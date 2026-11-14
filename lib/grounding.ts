@@ -103,12 +103,12 @@ export function findUnsupportedTerms(rewritten: string, cv: string, jd: string):
 }
 
 export interface GroundedResult {
-  /** Requirements whose evidence was verified (or which are "not_met"). */
+  /** Every requirement; ones whose quote is not in the CV are "unverified". */
   requirements: MatchedRequirement[];
   gaps: string[];
   /** Rewrites whose original bullet is in the CV and which add no new facts. */
   rewrites: LlmRewrite[];
-  /** Statuses used for scoring. Dropped requirements count as "not_met". */
+  /** Statuses used for scoring. Unverified requirements are left out. */
   statusesForScore: RequirementStatus[];
   /** Evidence or rewrite quotes that were not found in the CV. */
   ungroundedCount: number;
@@ -118,10 +118,12 @@ export interface GroundedResult {
 
 /**
  * The grounding check. Every quote the model gives must really be in the CV.
+ * It runs after the repair pass, so what it finds is "still ungrounded".
  *
- * - A "met" or "partly_met" requirement whose evidence is not in the CV is
- *   dropped and counted as ungrounded. It still counts as "not_met" in the
- *   score, so an invented quote can never raise the score.
+ * - A "met" or "partly_met" requirement whose evidence is not in the CV
+ *   becomes "unverified", loses its quote, is counted as ungrounded, and is
+ *   left out of the score (numerator and denominator), so an invented quote
+ *   can never raise the score.
  * - A rewrite whose original bullet is not in the CV is dropped and counted
  *   as ungrounded.
  * - A rewrite that adds a number or JD term the CV does not contain is
@@ -140,8 +142,8 @@ export function applyGroundingCheck(output: LlmOutput, cv: string, jd: string): 
       requirements.push({ requirement: item.requirement, status: item.status, evidence: item.evidence.trim() });
       statusesForScore.push(item.status);
     } else {
+      requirements.push({ requirement: item.requirement, status: "unverified", evidence: null });
       ungroundedCount += 1;
-      statusesForScore.push("not_met");
     }
   }
 

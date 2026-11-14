@@ -53,8 +53,11 @@ export interface CaseResult {
 export function checkExpectations(evalCase: EvalCase, result: AnalysisResult): string[] {
   const notes: string[] = [];
   const { minScore, maxScore, notMet } = evalCase.expect;
-  if (minScore !== undefined && result.score < minScore) notes.push(`score ${result.score} < ${minScore}`);
-  if (maxScore !== undefined && result.score > maxScore) notes.push(`score ${result.score} > ${maxScore}`);
+  if ((minScore !== undefined || maxScore !== undefined) && result.score === null) notes.push("no score");
+  if (minScore !== undefined && result.score !== null && result.score < minScore)
+    notes.push(`score ${result.score} < ${minScore}`);
+  if (maxScore !== undefined && result.score !== null && result.score > maxScore)
+    notes.push(`score ${result.score} > ${maxScore}`);
   for (const keyword of notMet ?? []) {
     const wronglyMet = result.requirements.find(
       (r) => r.status !== "not_met" && r.requirement.toLowerCase().includes(keyword.toLowerCase()),

@@ -55,7 +55,10 @@ export interface RepairSummary {
 }
 
 export interface AnalysisResult {
-  score: number;
+  /** null when no requirement could be scored. */
+  score: number | null;
+  /** Requirements in the score's denominator (unverified ones are not). */
+  scoredCount: number;
   requirements: MatchedRequirement[];
   gaps: string[];
   rewrites: LlmRewrite[];
@@ -155,6 +158,7 @@ export async function analyzeMatch(
   const grounded = applyGroundingCheck(output, cv, jd);
   return {
     score: computeScore(grounded.statusesForScore),
+    scoredCount: grounded.statusesForScore.length,
     requirements: grounded.requirements,
     gaps: grounded.gaps,
     rewrites: grounded.rewrites,

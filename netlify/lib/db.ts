@@ -25,8 +25,11 @@ export function getPool(): pg.Pool | null {
 
 export interface MatchRunRow {
   id: string;
-  score: number;
+  /** null when no requirement could be scored (see db/002). */
+  score: number | null;
+  /** Every requirement the model found, including unverified ones. */
   requirementCount: number;
+  /** Quotes still not found in the CV after the repair pass. */
   ungroundedCount: number;
   latencyMs: number;
   model: string;

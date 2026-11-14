@@ -26,11 +26,12 @@ describe.runIf(url)("database (real Postgres)", () => {
     await pool?.end();
   });
 
-  it("applies the migration once and is safe to run again", async () => {
+  it("applies the migrations once and is safe to run again", async () => {
     const client = await pool.connect();
     try {
       expect(await runMigrations(client, path.join(import.meta.dirname, "..", "db"))).toEqual([
         "001_create_match_runs.sql",
+        "002_score_nullable_and_ungrounded_meaning.sql",
       ]);
       expect(await runMigrations(client, path.join(import.meta.dirname, "..", "db"))).toEqual([]);
     } finally {
@@ -73,6 +74,13 @@ describe.runIf(url)("database (real Postgres)", () => {
     const { rows } = await pool.query("SELECT helpful, feedback_at FROM match_runs WHERE id = $1", [a]);
     expect(rows[0].helpful).toBe(true);
     expect(rows[0].feedback_at).toBeInstanceOf(Date);
+  });
+
+  it("stores a null score when nothing could be scored", async () => {
+    const id = randomUUID();
+    await insertMatchRun(pool, { id, score: null, requirementCount: 2, ungroundedCount: 2, latencyMs: 1, model: "m" });
+    const { rows } = await pool.query("SELECT score, ungrounded_count FROM match_runs WHERE id = $1", [id]);
+    expect(rows[0]).toEqual({ score: null, ungrounded_count: 2 });
   });
 
   it("rejects a score outside 0-100", async () => {

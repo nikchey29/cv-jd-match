@@ -89,6 +89,7 @@ export function createMatchHandler(deps: MatchDeps) {
       const response: MatchResponse = {
         id,
         score: result.score,
+        scoredCount: result.scoredCount,
         requirements: result.requirements,
         gaps: result.gaps,
         rewrites: result.rewrites,
@@ -101,6 +102,7 @@ export function createMatchHandler(deps: MatchDeps) {
 
       logEvent("match_ok", {
         score: response.score,
+        scoredCount: response.scoredCount,
         requirementCount: response.requirementCount,
         ungroundedCount: response.ungroundedCount,
         initialUngroundedCount: result.initialUngroundedCount,

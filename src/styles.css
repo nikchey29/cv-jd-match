@@ -242,6 +242,16 @@ button.primary:hover:not(:disabled) {
   background: var(--not-bg);
 }
 
+.req-unverified .badge {
+  color: var(--muted);
+  border: 1px dashed var(--muted);
+}
+
+.score-none {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
 blockquote {
   margin: 0.4rem 0 0;
   padding-left: 0.75rem;

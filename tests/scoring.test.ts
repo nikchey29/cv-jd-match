@@ -20,8 +20,8 @@ describe("computeScore", () => {
     expect(computeScore(["met", "met", "not_met"])).toBe(67);
   });
 
-  it("is 0 when there are no requirements", () => {
-    expect(computeScore([])).toBe(0);
+  it("is null when there is nothing to score (for example, every requirement is unverified)", () => {
+    expect(computeScore([])).toBeNull();
   });
 
   it("always stays between 0 and 100", () => {

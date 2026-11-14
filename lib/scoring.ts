@@ -9,11 +9,12 @@ export const STATUS_POINTS: Record<RequirementStatus, number> = {
 
 /**
  * Match score from 0 to 100, computed in code (never by the LLM):
- * the average points per requirement, as a rounded percentage.
- * No requirements means nothing could be matched, so the score is 0.
+ * the average points per scored requirement, as a rounded percentage.
+ * Unverified requirements are not passed in, so they are not in the
+ * denominator. With nothing to score there is no score: null.
  */
-export function computeScore(statuses: readonly RequirementStatus[]): number {
-  if (statuses.length === 0) return 0;
+export function computeScore(statuses: readonly RequirementStatus[]): number | null {
+  if (statuses.length === 0) return null;
   const points = statuses.reduce((sum, status) => sum + STATUS_POINTS[status], 0);
   return Math.round((points / statuses.length) * 100);
 }

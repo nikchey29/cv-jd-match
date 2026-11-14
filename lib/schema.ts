@@ -112,23 +112,35 @@ export function parseRepairOutput(raw: string): RepairOutput | null {
 // Response bodies returned to the browser
 // ---------------------------------------------------------------------------
 
+/**
+ * Status shown to the user. "unverified" means the model said met or partly
+ * met, but its quote was still not found in the CV after the repair pass.
+ */
+export type DisplayStatus = RequirementStatus | "unverified";
+
 export interface MatchedRequirement {
   requirement: string;
-  status: RequirementStatus;
-  /** Verified quote from the CV, or null when the requirement is not met. */
+  status: DisplayStatus;
+  /** Verified quote from the CV, or null when not met or unverified. */
   evidence: string | null;
 }
 
 export interface MatchResponse {
   /** Row id for feedback, or null if the result could not be saved. */
   id: string | null;
-  score: number;
+  /** 0..100, or null when no requirement could be scored (all unverified). */
+  score: number | null;
+  /** Requirements in the score's denominator: met, partly met and not met. */
+  scoredCount: number;
   requirements: MatchedRequirement[];
   gaps: string[];
   rewrites: LlmRewrite[];
   /** Total requirements the model found in the JD, including dropped ones. */
   requirementCount: number;
-  /** Items dropped because their quote was not found in the CV. */
+  /**
+   * Quotes still not found in the CV after the repair pass: unverified
+   * requirements plus rewrites hidden because their original is not in the CV.
+   */
   ungroundedCount: number;
   /** Rewrites dropped because they added numbers or JD terms not in the CV. */
   unsupportedRewriteCount: number;

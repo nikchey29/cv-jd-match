@@ -34,11 +34,36 @@ describe("analyzeMatch (mocked LLM)", () => {
     expect(messages[1]!.content).toContain(CV);
   });
 
-  it("drops hallucinated quotes and scores them as not met", async () => {
-    const result = await analyzeMatch(JD, CV, fakeLlm(HALLUCINATED_RAW));
+  it("marks quotes still not found after the repair pass as unverified and leaves them out of the score", async () => {
+    // The repair pass finds nothing better.
+    const llm = fakeLlm(HALLUCINATED_RAW, JSON.stringify({ answers: [{ id: 1, quote: "Kubernetes clusters" }] }));
+    const result = await analyzeMatch(JD, CV, llm);
     expect(result.ungroundedCount).toBe(2);
-    expect(result.score).toBe(50); // Python met, invented Kubernetes counted as not met
+    expect(result.requirements.map((r) => r.status)).toEqual(["met", "unverified"]);
+    expect(result.score).toBe(100); // only Python is scored
+    expect(result.scoredCount).toBe(1);
     expect(result.requirementCount).toBe(2);
+  });
+
+  it("has no score when every requirement is unverified", async () => {
+    const output = {
+      requirements: [{ requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters" }],
+      gaps: [],
+      rewrites: [],
+    };
+    const llm = fakeLlm(JSON.stringify(output), JSON.stringify({ answers: [] }));
+    const result = await analyzeMatch(JD, CV, llm);
+    expect(result.score).toBeNull();
+    expect(result.scoredCount).toBe(0);
+    expect(result.ungroundedCount).toBe(1);
+  });
+
+  it("scores a retracted requirement as not met", async () => {
+    const llm = fakeLlm(HALLUCINATED_RAW, JSON.stringify({ answers: [{ id: 1, quote: "none" }] }));
+    const result = await analyzeMatch(JD, CV, llm);
+    expect(result.requirements.map((r) => r.status)).toEqual(["met", "not_met"]);
+    expect(result.score).toBe(50);
+    expect(result.ungroundedCount).toBe(1); // the invented rewrite source is still ungrounded
   });
 
   it("retries once when the first answer is not JSON", async () => {

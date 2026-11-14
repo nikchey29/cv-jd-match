@@ -144,16 +144,20 @@ describe("applyGroundingCheck", () => {
     expect(result.requirements.find((r) => r.requirement === "Kubernetes")?.evidence).toBeNull();
   });
 
-  it("drops requirements and rewrites whose quotes are not in the CV and counts them", () => {
+  it("marks requirements with quotes not in the CV as unverified, drops such rewrites, and counts both", () => {
     const result = applyGroundingCheck(parsed(HALLUCINATED_RAW), CV, JD);
     expect(result.ungroundedCount).toBe(2); // invented Kubernetes quote + invented rewrite source
-    expect(result.requirements.map((r) => r.requirement)).toEqual(["Python"]);
+    expect(result.requirements).toEqual([
+      { requirement: "Python", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
+      // The invented quote is not shown.
+      { requirement: "Kubernetes", status: "unverified", evidence: null },
+    ]);
     expect(result.rewrites).toEqual([]);
   });
 
-  it("scores a dropped requirement as not met so hallucinations cannot raise the score", () => {
+  it("leaves unverified requirements out of the score so hallucinations cannot raise it", () => {
     const result = applyGroundingCheck(parsed(HALLUCINATED_RAW), CV, JD);
-    expect(result.statusesForScore).toEqual(["met", "not_met"]);
+    expect(result.statusesForScore).toEqual(["met"]);
   });
 
   it("treats a met requirement with empty evidence as ungrounded", () => {
@@ -164,7 +168,8 @@ describe("applyGroundingCheck", () => {
     };
     const result = applyGroundingCheck(output, CV, JD);
     expect(result.ungroundedCount).toBe(1);
-    expect(result.requirements).toEqual([]);
+    expect(result.requirements).toEqual([{ requirement: "Python", status: "unverified", evidence: null }]);
+    expect(result.statusesForScore).toEqual([]);
   });
 
   it("drops a rewrite that adds facts, without counting it as ungrounded", () => {

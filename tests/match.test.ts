@@ -58,6 +58,49 @@ describe("POST /api/match handler (mocked LLM)", () => {
     expect(database.queries[0]!.params).toEqual([body.id, 63, 4, 0, 850, "test-model"]);
   });
 
+  it("stores ungrounded_count as the quotes still ungrounded after the repair pass", async () => {
+    const first = JSON.stringify({
+      requirements: [
+        { requirement: "Docker", status: "met", evidence: "Used Docker on AWS" }, // repaired below
+        { requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters" }, // stays invented
+        { requirement: "Airflow", status: "not_met", evidence: "" },
+      ],
+      gaps: [],
+      rewrites: [],
+    });
+    const repair = JSON.stringify({
+      answers: [
+        { id: 1, quote: "Deployed models with Docker on AWS" },
+        { id: 2, quote: "Kubernetes in production" },
+      ],
+    });
+    const complete = vi.fn<CompleteFn>().mockResolvedValueOnce(first).mockResolvedValueOnce(repair);
+    const res = await setup(complete)(post({ jd: JD, cv: CV }), context);
+    const body = (await res.json()) as MatchResponse;
+    expect(complete).toHaveBeenCalledTimes(2);
+    expect(body.requirements.map((r) => r.status)).toEqual(["met", "unverified", "not_met"]);
+    expect(body.score).toBe(50); // Docker met, Airflow not met; Kubernetes left out
+    expect(body.scoredCount).toBe(2);
+    expect(body.ungroundedCount).toBe(1);
+    // id, score, requirement_count, ungrounded_count, latency_ms, model
+    expect(database.queries[0]!.params).toEqual([body.id, 50, 3, 1, 850, "test-model"]);
+    const log = JSON.parse(logs.find((l) => l.includes("match_ok"))!) as Record<string, unknown>;
+    expect(log).toMatchObject({ initialUngroundedCount: 2, ungroundedCount: 1, repairStatus: "done", repairFixed: 1 });
+  });
+
+  it("saves a null score when every requirement is unverified", async () => {
+    const first = JSON.stringify({
+      requirements: [{ requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters" }],
+      gaps: [],
+      rewrites: [],
+    });
+    const complete = vi.fn<CompleteFn>().mockResolvedValueOnce(first).mockResolvedValueOnce('{"answers":[]}');
+    const res = await setup(complete)(post({ jd: JD, cv: CV }), context);
+    const body = (await res.json()) as MatchResponse;
+    expect(body.score).toBeNull();
+    expect(database.queries[0]!.params).toEqual([body.id, null, 1, 1, 850, "test-model"]);
+  });
+
   it("never sends the JD or CV text to the database", async () => {
     await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV }), context);
     const sent = JSON.stringify(database.queries);
