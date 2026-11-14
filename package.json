@@ -40,6 +40,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts"
   }
 }

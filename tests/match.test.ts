@@ -4,6 +4,7 @@ import type { MatchResponse } from "../lib/schema";
 import { createMatchHandler, MESSAGES, type MatchDeps } from "../netlify/functions/match";
 import { LlmBusyError, type CompleteFn } from "../netlify/lib/llm";
 import { FixedWindowRateLimiter } from "../netlify/lib/rateLimit";
+import { fakeDb } from "./fixtures/fakeDb";
 import { CV, GOOD_RAW, JD, NOT_JSON_RAW } from "./fixtures/llm";
 
 const context = { ip: "203.0.113.7" } as Context;
@@ -16,9 +17,12 @@ function post(body: unknown): Request {
   });
 }
 
+let database: ReturnType<typeof fakeDb>;
+
 function setup(complete: CompleteFn, overrides: Partial<MatchDeps> = {}) {
   const deps: MatchDeps = {
     getLlm: () => ({ complete, model: "test-model" }),
+    getDb: () => database.db,
     limiter: new FixedWindowRateLimiter(100, 60_000),
     now: vi.fn().mockReturnValueOnce(1_000).mockReturnValueOnce(1_850),
     ...overrides,
@@ -29,6 +33,7 @@ function setup(complete: CompleteFn, overrides: Partial<MatchDeps> = {}) {
 let logs: string[];
 beforeEach(() => {
   logs = [];
+  database = fakeDb();
   vi.spyOn(console, "info").mockImplementation((line: string) => void logs.push(line));
 });
 afterEach(() => vi.restoreAllMocks());
@@ -43,6 +48,35 @@ describe("POST /api/match handler (mocked LLM)", () => {
     expect(body.model).toBe("test-model");
     expect(body.latencyMs).toBe(850);
     expect(body.ungroundedCount).toBe(0);
+  });
+
+  it("saves one row with only numbers and the model name", async () => {
+    const res = await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV }), context);
+    const body = (await res.json()) as MatchResponse;
+    expect(database.queries).toHaveLength(1);
+    expect(database.queries[0]!.sql).toMatch(/INSERT INTO match_runs/);
+    expect(database.queries[0]!.params).toEqual([body.id, 63, 4, 0, 850, "test-model"]);
+  });
+
+  it("never sends the JD or CV text to the database", async () => {
+    await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV }), context);
+    const sent = JSON.stringify(database.queries);
+    for (const line of [...JD.split("\n"), ...CV.split("\n")]) expect(sent).not.toContain(line.trim());
+  });
+
+  it("still returns the result, with id null, when saving fails", async () => {
+    database = fakeDb(new Error("connection refused"));
+    const res = await setup(async () => GOOD_RAW)(post({ jd: JD, cv: CV }), context);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as MatchResponse;
+    expect(body.id).toBeNull();
+    expect(body.score).toBe(63);
+    expect(logs.join("\n")).not.toContain("connection refused");
+  });
+
+  it("does not save anything when the LLM fails", async () => {
+    await setup(async () => NOT_JSON_RAW)(post({ jd: JD, cv: CV }), context);
+    expect(database.queries).toHaveLength(0);
   });
 
   it("never writes the JD or CV text to the logs", async () => {

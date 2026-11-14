@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { MatchRequestSchema, type MatchResponse } from "../../lib/schema";
 import { analyzeMatch, InputTooLargeError, INPUT_TOKEN_BUDGET } from "../lib/analyze";
 import { getLlmConfig } from "../lib/config";
+import { getPool, insertMatchRun, type Queryable } from "../lib/db";
 import { errorResponse, json, readJsonBody } from "../lib/http";
 import { createGroqComplete, InvalidLlmOutputError, LlmBusyError, LlmTooLargeError, type CompleteFn } from "../lib/llm";
 import { errorKind, logEvent } from "../lib/log";
@@ -26,8 +27,30 @@ export interface LlmHandle {
 export interface MatchDeps {
   /** Returns the LLM to use, or null when it is not configured. */
   getLlm: () => LlmHandle | null;
+  /** Returns the database, or null when DATABASE_URL is not set. */
+  getDb: () => Queryable | null;
   limiter: FixedWindowRateLimiter;
   now: () => number;
+}
+
+/**
+ * Save the run's numbers (never the JD or CV text). Returns the row id, or
+ * null if saving failed: the user still gets their result, without feedback.
+ */
+async function saveRun(deps: MatchDeps, row: Omit<Parameters<typeof insertMatchRun>[1], "id">): Promise<string | null> {
+  const db = deps.getDb();
+  if (!db) {
+    logEvent("match_not_saved", { reason: "no_database" });
+    return null;
+  }
+  const id = randomUUID();
+  try {
+    await insertMatchRun(db, { id, ...row });
+    return id;
+  } catch (error) {
+    logEvent("match_not_saved", errorKind(error));
+    return null;
+  }
 }
 
 export function createMatchHandler(deps: MatchDeps) {
@@ -56,8 +79,15 @@ export function createMatchHandler(deps: MatchDeps) {
     try {
       const result = await analyzeMatch(input.data.jd, input.data.cv, llm.complete);
       const latencyMs = Math.round(deps.now() - started);
+      const id = await saveRun(deps, {
+        score: result.score,
+        requirementCount: result.requirementCount,
+        ungroundedCount: result.ungroundedCount,
+        latencyMs,
+        model: llm.model,
+      });
       const response: MatchResponse = {
-        id: randomUUID(),
+        id,
         score: result.score,
         requirements: result.requirements,
         gaps: result.gaps,
@@ -76,6 +106,7 @@ export function createMatchHandler(deps: MatchDeps) {
         unsupportedRewriteCount: response.unsupportedRewriteCount,
         attempts: result.attempts,
         latencyMs,
+        saved: id !== null,
       });
       return json(200, response);
     } catch (error) {
@@ -108,6 +139,7 @@ function getGroq(): LlmHandle | null {
 
 export default createMatchHandler({
   getLlm: getGroq,
+  getDb: getPool,
   limiter: new FixedWindowRateLimiter(10, 60_000),
   now: () => performance.now(),
 });

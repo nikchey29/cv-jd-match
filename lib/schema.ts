@@ -89,7 +89,8 @@ export interface MatchedRequirement {
 }
 
 export interface MatchResponse {
-  id: string;
+  /** Row id for feedback, or null if the result could not be saved. */
+  id: string | null;
   score: number;
   requirements: MatchedRequirement[];
   gaps: string[];
