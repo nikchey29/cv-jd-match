@@ -55,17 +55,24 @@ export function ResultView({ result, onFeedbackSent }: Props) {
       {result.score === null ? (
         <p className="score-none">No score: none of the requirements could be checked against your CV.</p>
       ) : (
-        <div className="score" role="img" aria-label={`Match score ${result.score} out of 100`}>
-          <span className="score-number">{result.score}</span>
-          <span className="score-max">/ 100</span>
-        </div>
+        <>
+          <div className="score" role="img" aria-label={`Match score ${result.score} out of 100`}>
+            <span className="score-number">{result.score}</span>
+            <span className="score-max">/ 100</span>
+          </div>
+          <p className="hint">
+            Score = met requirements count 1, partly met count 0.5, not met count 0, divided by the{" "}
+            {plural(result.scoredCount, "requirement", "requirements")} checked against your CV
+            {unverified.length > 0 && (
+              <>. {plural(unverified.length, "unverified requirement is", "unverified requirements are")} left out</>
+            )}
+            {result.traits.length > 0 && (
+              <>. {plural(result.traits.length, "personal quality is", "personal qualities are")} not scored</>
+            )}
+            .
+          </p>
+        </>
       )}
-      <p className="hint">
-        Score = met requirements count 1, partly met count 0.5, not met count 0, divided by the{" "}
-        {plural(result.scoredCount, "requirement", "requirements")} checked against your CV
-        {unverified.length > 0 && <>. {plural(unverified.length, "unverified requirement is", "unverified requirements are")} left out</>}
-        {result.traits.length > 0 && <>. {plural(result.traits.length, "personal quality is", "personal qualities are")} not scored</>}.
-      </p>
 
       {result.ungroundedCount > 0 && (
         <p className="notice">
