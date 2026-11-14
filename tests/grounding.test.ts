@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyGroundingCheck, containsQuote, findUnsupportedTerms, normalizeText } from "../lib/grounding";
 import { parseLlmOutput, type LlmOutput } from "../lib/schema";
 import { CV, GOOD_RAW, HALLUCINATED_RAW, JD } from "./fixtures/llm";
+import { PDF_CV, PDF_QUOTES } from "./fixtures/pdfText";
 
 function parsed(raw: string): LlmOutput {
   const result = parseLlmOutput(raw);
@@ -12,6 +13,74 @@ function parsed(raw: string): LlmOutput {
 describe("normalizeText", () => {
   it("lower-cases and collapses whitespace", () => {
     expect(normalizeText("  Built\tETL\n\n pipelines  ")).toBe("built etl pipelines");
+  });
+
+  it("applies NFKC, so ligatures and non-breaking spaces become plain text", () => {
+    expect(normalizeText("classi\uFB01cation in ML\uFB02ow")).toBe("classification in mlflow");
+    expect(normalizeText("Python,\u00A0SQL")).toBe("python, sql");
+  });
+
+  it("maps curly quotes and every dash to plain ASCII", () => {
+    expect(normalizeText("\u201Craw\u201D team\u2019s")).toBe('"raw" team\'s');
+    expect(normalizeText("2021 \u2013 2023 \u2014 now \u2212 1 \u2011 x")).toBe("2021 - 2023 - now - 1 - x");
+  });
+
+  it("removes soft hyphens and zero-width characters", () => {
+    expect(normalizeText("inter\u00ADnal\u200B tool\uFEFF")).toBe("internal tool");
+  });
+
+  it("joins a word split by a hyphen at a line break", () => {
+    expect(normalizeText("data pipe-\nlines")).toBe("data pipelines");
+    expect(normalizeText("ex- \r\n  periments")).toBe("experiments");
+  });
+
+  it("keeps a hyphen that is not at a line break", () => {
+    expect(normalizeText("support-ticket")).toBe("support-ticket");
+  });
+
+  it("turns bullet characters into spaces", () => {
+    expect(normalizeText("\u2022 Built\n\uF0B7 Led\n\u25AA Wrote \u00B7 Git")).toBe("built led wrote git");
+  });
+});
+
+describe("containsQuote with text pasted from a PDF", () => {
+  for (const [name, quote] of Object.entries(PDF_QUOTES)) {
+    it(`finds a clean quote in the PDF text: ${name}`, () => {
+      expect(containsQuote(PDF_CV, quote)).toBe(true);
+    });
+  }
+
+  it("also finds the quotes when the model keeps the PDF characters", () => {
+    expect(containsQuote(PDF_CV, "classi\uFB01cation, raising macro-F1")).toBe(true);
+    expect(containsQuote(PDF_CV, "cleaned 3 million \u201Craw\u201D log lines")).toBe(true);
+  });
+
+  it("still rejects a paraphrase of the PDF text", () => {
+    expect(containsQuote(PDF_CV, "Fine-tuned GPT models in PyTorch")).toBe(false);
+    expect(containsQuote(PDF_CV, "Built data pipelines in Spark")).toBe(false);
+  });
+
+  it("rejects a quote stitched together with an ellipsis", () => {
+    expect(containsQuote(PDF_CV, "Fine-tuned BERT models ... raising macro-F1")).toBe(false);
+    expect(containsQuote(PDF_CV, "Fine-tuned BERT models \u2026 raising macro-F1")).toBe(false);
+  });
+
+  it("ignores punctuation the model adds or drops at the ends of a quote", () => {
+    expect(containsQuote(PDF_CV, '"Built data pipelines in Python."')).toBe(true);
+    expect(containsQuote(PDF_CV, "raising macro-F1 from 0.71 to 0.83.")).toBe(true);
+  });
+
+  it("rejects a quote that is only punctuation", () => {
+    expect(containsQuote(PDF_CV, " - . ")).toBe(false);
+  });
+
+  it("grounds every requirement of a model answer about the PDF CV", () => {
+    const output: LlmOutput = {
+      requirements: Object.values(PDF_QUOTES).map((quote) => ({ requirement: quote, status: "met", evidence: quote })),
+      gaps: [],
+      rewrites: [],
+    };
+    expect(applyGroundingCheck(output, PDF_CV, "").ungroundedCount).toBe(0);
   });
 });
 

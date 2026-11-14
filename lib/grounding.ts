@@ -1,18 +1,61 @@
 import type { LlmOutput, LlmRewrite, MatchedRequirement, RequirementStatus } from "./schema";
 
+// Characters that text copied out of a PDF or Word file often contains.
+// Written as escapes so the source stays readable.
+const INVISIBLE = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g; // soft hyphen, zero-width spaces and joiners, BOM
+const SINGLE_QUOTES = /[\u2018\u2019\u201A\u201B\u2032\u00B4`]/g; // ‘ ’ ‚ ‛ ′ ´ `
+const DOUBLE_QUOTES = /[\u201C\u201D\u201E\u201F\u2033\u00AB\u00BB]/g; // “ ” „ ‟ ″ « »
+const DASHES = /[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g; // ‐ ‑ ‒ – — ― − and small/full-width forms
+// • ‣ ⁃ ∙ · ▪ ▫ ■ □ ● ○ ◦ ➢ ➤ ✓ ✔, plus the private-use bullets Word's Symbol font exports.
+const BULLETS = /[\u2022\u2023\u2043\u2219\u00B7\u25AA\u25AB\u25A0\u25A1\u25CF\u25CB\u25E6\u27A2\u27A4\u2713\u2714\uF0A7\uF0B7\uF076\uF0D8]/g;
+// A word split at a line break: "pipe-\nlines" becomes "pipelines".
+const LINE_BREAK_HYPHEN = /(\p{L})-[ \t]*\r?\n\s*(\p{L})/gu;
+
 /**
- * Normalise text for quote matching: lower-case, and collapse every run of
- * whitespace (spaces, tabs, newlines) into a single space.
+ * Normalise text for quote matching, so a quote the model copied from a CV
+ * still matches when the CV was pasted from a PDF:
+ *
+ * - Unicode NFKC: ligatures such as "ﬁ" become "fi", non-breaking and other
+ *   special spaces become plain spaces, "…" becomes "...".
+ * - Soft hyphens and zero-width characters are removed.
+ * - Curly quotes become straight quotes; every dash becomes "-".
+ * - A word split by a hyphen at a line break is joined again.
+ * - Bullet characters become spaces.
+ * - Every run of whitespace becomes one space, and the text is lower-cased.
  */
 export function normalizeText(text: string): string {
-  return text.replace(/\s+/g, " ").trim().toLowerCase();
+  return text
+    .normalize("NFKC")
+    .replace(INVISIBLE, "")
+    .replace(SINGLE_QUOTES, "'")
+    .replace(DOUBLE_QUOTES, '"')
+    .replace(DASHES, "-")
+    .replace(LINE_BREAK_HYPHEN, "$1$2")
+    .replace(BULLETS, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
-/** True when `quote` appears in `text`, ignoring case and whitespace differences. */
+// Punctuation the model may add or leave out at the ends of a quote.
+const EDGE_PUNCTUATION = /^[\s"'.,;:!?()-]+|[\s"'.,;:!?()-]+$/g;
+
+/**
+ * Hyphens removed, for a second comparison. A PDF can split "data-driven"
+ * as "data-\ndriven", which normalisation joins to "datadriven"; the model
+ * will quote "data-driven". Dropping hyphens on both sides matches the two.
+ */
+const withoutHyphens = (normalized: string) => normalized.replace(/-/g, "").replace(/ {2,}/g, " ");
+
+/**
+ * True when `quote` appears in `text` after both are normalised (see
+ * normalizeText). Punctuation at the very start or end of the quote is ignored.
+ */
 export function containsQuote(text: string, quote: string): boolean {
-  const needle = normalizeText(quote);
+  const needle = normalizeText(quote).replace(EDGE_PUNCTUATION, "");
   if (needle.length === 0) return false;
-  return normalizeText(text).includes(needle);
+  const haystack = normalizeText(text);
+  return haystack.includes(needle) || withoutHyphens(haystack).includes(withoutHyphens(needle));
 }
 
 // Common words that may appear in a job description and in a rewrite
