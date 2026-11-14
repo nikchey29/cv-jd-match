@@ -42,6 +42,23 @@ describe("parseLlmOutput (mocked LLM responses)", () => {
     expect(parseLlmOutput(raw)).toEqual({ ok: false, reason: "schema_mismatch" });
   });
 
+  it('requires "kind" to be "skill" or "trait" on every requirement', () => {
+    const [first, ...rest] = GOOD_OUTPUT.requirements;
+    const { kind: _kind, ...withoutKind } = first!;
+    void _kind;
+    expect(parseLlmOutput(JSON.stringify({ ...GOOD_OUTPUT, requirements: [withoutKind, ...rest] }))).toEqual({
+      ok: false,
+      reason: "schema_mismatch",
+    });
+    const badKind = { ...first!, kind: "soft_skill" };
+    expect(parseLlmOutput(JSON.stringify({ ...GOOD_OUTPUT, requirements: [badKind] }))).toEqual({
+      ok: false,
+      reason: "schema_mismatch",
+    });
+    const trait = { requirement: "Self-starter", kind: "trait", status: "not_met", evidence: "" };
+    expect(parseLlmOutput(JSON.stringify({ ...GOOD_OUTPUT, requirements: [trait] })).ok).toBe(true);
+  });
+
   it("rejects an empty requirement list", () => {
     const raw = JSON.stringify({ ...GOOD_OUTPUT, requirements: [] });
     expect(parseLlmOutput(raw)).toEqual({ ok: false, reason: "schema_mismatch" });
@@ -52,6 +69,10 @@ describe("llmOutputJsonSchema", () => {
   it("is strict: every field required and no extra properties", () => {
     expect(llmOutputJsonSchema.additionalProperties).toBe(false);
     expect(llmOutputJsonSchema.required).toEqual(["requirements", "gaps", "rewrites"]);
+    const item = (llmOutputJsonSchema.properties as Record<string, { items: Record<string, unknown> }>).requirements!
+      .items;
+    expect(item.required).toEqual(["requirement", "kind", "status", "evidence"]);
+    expect(item.additionalProperties).toBe(false);
   });
 });
 

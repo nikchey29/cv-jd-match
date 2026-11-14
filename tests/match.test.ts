@@ -61,9 +61,9 @@ describe("POST /api/match handler (mocked LLM)", () => {
   it("stores ungrounded_count as the quotes still ungrounded after the repair pass", async () => {
     const first = JSON.stringify({
       requirements: [
-        { requirement: "Docker", status: "met", evidence: "Used Docker on AWS" }, // repaired below
-        { requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters" }, // stays invented
-        { requirement: "Airflow", status: "not_met", evidence: "" },
+        { requirement: "Docker", kind: "skill", status: "met", evidence: "Used Docker on AWS" }, // repaired below
+        { requirement: "Kubernetes", kind: "skill", status: "met", evidence: "Managed Kubernetes clusters" }, // stays invented
+        { requirement: "Airflow", kind: "skill", status: "not_met", evidence: "" },
       ],
       gaps: [],
       rewrites: [],
@@ -90,7 +90,7 @@ describe("POST /api/match handler (mocked LLM)", () => {
 
   it("saves a null score when every requirement is unverified", async () => {
     const first = JSON.stringify({
-      requirements: [{ requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters" }],
+      requirements: [{ requirement: "Kubernetes", kind: "skill", status: "met", evidence: "Managed Kubernetes clusters" }],
       gaps: [],
       rewrites: [],
     });

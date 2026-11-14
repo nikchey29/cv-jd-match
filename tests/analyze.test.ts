@@ -47,7 +47,7 @@ describe("analyzeMatch (mocked LLM)", () => {
 
   it("has no score when every requirement is unverified", async () => {
     const output = {
-      requirements: [{ requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters" }],
+      requirements: [{ requirement: "Kubernetes", kind: "skill", status: "met", evidence: "Managed Kubernetes clusters" }],
       gaps: [],
       rewrites: [],
     };

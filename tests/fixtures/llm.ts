@@ -11,11 +11,11 @@ Experience with Airflow is a plus.`;
 /** A well-formed response whose quotes all appear in CV. */
 export const GOOD_OUTPUT = {
   requirements: [
-    { requirement: "Python", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
+    { requirement: "Python", kind: "skill", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
     // Different case and whitespace than the CV: must still be grounded.
-    { requirement: "Docker", status: "met", evidence: "deployed models with docker on AWS" },
-    { requirement: "SQL", status: "partly_met", evidence: "Python and SQL" },
-    { requirement: "Kubernetes", status: "not_met", evidence: "" },
+    { requirement: "Docker", kind: "skill", status: "met", evidence: "deployed models with docker on AWS" },
+    { requirement: "SQL", kind: "skill", status: "partly_met", evidence: "Python and SQL" },
+    { requirement: "Kubernetes", kind: "skill", status: "not_met", evidence: "" },
   ],
   gaps: ["No Kubernetes experience", "No Airflow experience"],
   rewrites: [
@@ -29,8 +29,8 @@ export const GOOD_OUTPUT = {
 /** A response where the model invented a quote and a rewrite source. */
 export const HALLUCINATED_OUTPUT = {
   requirements: [
-    { requirement: "Python", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
-    { requirement: "Kubernetes", status: "met", evidence: "Managed Kubernetes clusters in production" },
+    { requirement: "Python", kind: "skill", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
+    { requirement: "Kubernetes", kind: "skill", status: "met", evidence: "Managed Kubernetes clusters in production" },
   ],
   gaps: [],
   rewrites: [
@@ -44,5 +44,5 @@ export const NOT_JSON_RAW = "Sure! Here is the analysis: the candidate is a stro
 export const WRONG_SHAPE_RAW = JSON.stringify({ score: 92, summary: "Strong match" });
 export const BAD_STATUS_RAW = JSON.stringify({
   ...GOOD_OUTPUT,
-  requirements: [{ requirement: "Python", status: "yes", evidence: "Python" }],
+  requirements: [{ requirement: "Python", kind: "skill", status: "yes", evidence: "Python" }],
 });

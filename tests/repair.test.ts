@@ -8,10 +8,10 @@ import { CV, GOOD_RAW, JD } from "./fixtures/llm";
 /** Model output with one paraphrased quote, one invented quote and one paraphrased rewrite source. */
 const NEEDS_REPAIR: LlmOutput = {
   requirements: [
-    { requirement: "Python", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
-    { requirement: "Docker", status: "met", evidence: "Used Docker to deploy models on AWS" },
-    { requirement: "Kubernetes", status: "partly_met", evidence: "Managed Kubernetes clusters" },
-    { requirement: "Airflow", status: "not_met", evidence: "" },
+    { requirement: "Python", kind: "skill", status: "met", evidence: "Built ETL pipelines in Python and SQL at Acme" },
+    { requirement: "Docker", kind: "skill", status: "met", evidence: "Used Docker to deploy models on AWS" },
+    { requirement: "Kubernetes", kind: "skill", status: "partly_met", evidence: "Managed Kubernetes clusters" },
+    { requirement: "Airflow", kind: "skill", status: "not_met", evidence: "" },
   ],
   gaps: ["No Kubernetes"],
   rewrites: [{ original: "Mentored 2 junior analysts", rewritten: "Mentored two junior analysts in SQL." }],
@@ -38,6 +38,15 @@ describe("findUngroundedQuotes", () => {
       [3, "original", 0, "Mentored 2 junior analysts"],
     ]);
     expect(quotes[0]!.claim).toContain("Docker");
+  });
+
+  it("ignores traits, even with an invented quote", () => {
+    const output: LlmOutput = {
+      requirements: [{ requirement: "Self-starter", kind: "trait", status: "met", evidence: "invented text" }],
+      gaps: [],
+      rewrites: [],
+    };
+    expect(findUngroundedQuotes(output, CV)).toEqual([]);
   });
 
   it("returns nothing when every quote is in the CV", () => {
@@ -80,7 +89,7 @@ describe("applyRepairAnswers", () => {
   it('turns a requirement into "not met" when the model answers "none"', () => {
     const { output, retracted } = applyRepairAnswers(NEEDS_REPAIR, quotes, [{ id: 2, quote: " None " }], CV);
     expect(retracted).toBe(1);
-    expect(output.requirements[2]).toEqual({ requirement: "Kubernetes", status: "not_met", evidence: "" });
+    expect(output.requirements[2]).toEqual({ requirement: "Kubernetes", kind: "skill", status: "not_met", evidence: "" });
   });
 
   it('removes a rewrite when the model answers "none" for its original', () => {
@@ -168,6 +177,25 @@ describe("analyzeMatch repair pass (mocked LLM)", () => {
     const result = await analyzeMatch(JD, CV, llm);
     expect(result.repair).toEqual({ status: "failed", fixed: 0, retracted: 0, errorName: "LlmBusyError" });
     expect(result.ungroundedCount).toBe(3);
+  });
+
+  it("leaves traits out of the score and makes no repair call for them", async () => {
+    const output: LlmOutput = {
+      requirements: [
+        { requirement: "Python", kind: "skill", status: "met", evidence: "Python and SQL" },
+        { requirement: "Kubernetes", kind: "skill", status: "not_met", evidence: "" },
+        { requirement: "Excellent communication skills", kind: "trait", status: "met", evidence: "Mentored" },
+      ],
+      gaps: [],
+      rewrites: [],
+    };
+    const llm = fakeLlm(JSON.stringify(output));
+    const result = await analyzeMatch(JD, CV, llm);
+    expect(llm).toHaveBeenCalledTimes(1);
+    expect(result.traits).toEqual(["Excellent communication skills"]);
+    expect(result.score).toBe(50); // Python met, Kubernetes not met; the trait is not scored
+    expect(result.scoredCount).toBe(2);
+    expect(result.requirementCount).toBe(3);
   });
 
   it("skips the repair pass when the first call already took too long", async () => {

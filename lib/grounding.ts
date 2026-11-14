@@ -103,8 +103,10 @@ export function findUnsupportedTerms(rewritten: string, cv: string, jd: string):
 }
 
 export interface GroundedResult {
-  /** Every requirement; ones whose quote is not in the CV are "unverified". */
+  /** Every skill requirement; ones whose quote is not in the CV are "unverified". */
   requirements: MatchedRequirement[];
+  /** Trait requirements, which a CV cannot prove: shown apart, never scored. */
+  traits: string[];
   gaps: string[];
   /** Rewrites whose original bullet is in the CV and which add no new facts. */
   rewrites: LlmRewrite[];
@@ -124,6 +126,8 @@ export interface GroundedResult {
  *   becomes "unverified", loses its quote, is counted as ungrounded, and is
  *   left out of the score (numerator and denominator), so an invented quote
  *   can never raise the score.
+ * - A "trait" requirement (such as "self-starter") is moved to `traits`
+ *   whatever status the model gave it, and is never scored.
  * - A rewrite whose original bullet is not in the CV is dropped and counted
  *   as ungrounded.
  * - A rewrite that adds a number or JD term the CV does not contain is
@@ -131,11 +135,14 @@ export interface GroundedResult {
  */
 export function applyGroundingCheck(output: LlmOutput, cv: string, jd: string): GroundedResult {
   const requirements: MatchedRequirement[] = [];
+  const traits: string[] = [];
   const statusesForScore: RequirementStatus[] = [];
   let ungroundedCount = 0;
 
   for (const item of output.requirements) {
-    if (item.status === "not_met") {
+    if (item.kind === "trait") {
+      traits.push(item.requirement);
+    } else if (item.status === "not_met") {
       requirements.push({ requirement: item.requirement, status: "not_met", evidence: null });
       statusesForScore.push("not_met");
     } else if (containsQuote(cv, item.evidence)) {
@@ -161,6 +168,7 @@ export function applyGroundingCheck(output: LlmOutput, cv: string, jd: string): 
 
   return {
     requirements,
+    traits,
     gaps: output.gaps,
     rewrites,
     statusesForScore,

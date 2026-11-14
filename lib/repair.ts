@@ -18,7 +18,8 @@ export interface UngroundedQuote {
 export function findUngroundedQuotes(output: LlmOutput, cv: string): UngroundedQuote[] {
   const found: UngroundedQuote[] = [];
   output.requirements.forEach((item, index) => {
-    if (item.status !== "not_met" && !containsQuote(cv, item.evidence)) {
+    // Traits are not judged, so their quotes do not matter.
+    if (item.kind === "skill" && item.status !== "not_met" && !containsQuote(cv, item.evidence)) {
       found.push({
         id: found.length + 1,
         kind: "evidence",

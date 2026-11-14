@@ -34,8 +34,17 @@ export type FeedbackRequest = z.infer<typeof FeedbackRequestSchema>;
 export const REQUIREMENT_STATUSES = ["met", "partly_met", "not_met"] as const;
 export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];
 
+/**
+ * "skill": something a CV can show (a skill, tool, experience, education,
+ * certification, language). "trait": a personal quality such as "self-starter"
+ * that a quote from a CV cannot prove.
+ */
+export const REQUIREMENT_KINDS = ["skill", "trait"] as const;
+export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
+
 export const LlmRequirementSchema = z.strictObject({
   requirement: z.string().min(1),
+  kind: z.enum(REQUIREMENT_KINDS),
   status: z.enum(REQUIREMENT_STATUSES),
   /** Exact quote from the CV. Empty string when status is "not_met". */
   evidence: z.string(),
@@ -132,10 +141,13 @@ export interface MatchResponse {
   score: number | null;
   /** Requirements in the score's denominator: met, partly met and not met. */
   scoredCount: number;
+  /** Skill requirements, checked against the CV. */
   requirements: MatchedRequirement[];
+  /** Trait requirements ("self-starter"): not checkable from a CV, not scored. */
+  traits: string[];
   gaps: string[];
   rewrites: LlmRewrite[];
-  /** Total requirements the model found in the JD, including dropped ones. */
+  /** Every requirement the model found in the JD: skills (incl. unverified) and traits. */
   requirementCount: number;
   /**
    * Quotes still not found in the CV after the repair pass: unverified

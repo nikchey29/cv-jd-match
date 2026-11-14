@@ -11,6 +11,7 @@ function result(overrides: Partial<AnalysisResult>): AnalysisResult {
     score: 50,
     scoredCount: 0,
     requirements: [],
+    traits: [],
     gaps: [],
     rewrites: [],
     requirementCount: 0,

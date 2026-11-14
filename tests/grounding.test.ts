@@ -76,7 +76,7 @@ describe("containsQuote with text pasted from a PDF", () => {
 
   it("grounds every requirement of a model answer about the PDF CV", () => {
     const output: LlmOutput = {
-      requirements: Object.values(PDF_QUOTES).map((quote) => ({ requirement: quote, status: "met", evidence: quote })),
+      requirements: Object.values(PDF_QUOTES).map((quote) => ({ requirement: quote, kind: "skill", status: "met", evidence: quote })),
       gaps: [],
       rewrites: [],
     };
@@ -162,7 +162,7 @@ describe("applyGroundingCheck", () => {
 
   it("treats a met requirement with empty evidence as ungrounded", () => {
     const output: LlmOutput = {
-      requirements: [{ requirement: "Python", status: "met", evidence: "" }],
+      requirements: [{ requirement: "Python", kind: "skill", status: "met", evidence: "" }],
       gaps: [],
       rewrites: [],
     };
@@ -172,9 +172,28 @@ describe("applyGroundingCheck", () => {
     expect(result.statusesForScore).toEqual([]);
   });
 
+  it("moves traits to their own list and never scores them, whatever status the model gave", () => {
+    const output: LlmOutput = {
+      requirements: [
+        { requirement: "Python", kind: "skill", status: "met", evidence: "Python and SQL" },
+        // A weak quote for a trait: it must not count, and is not ungrounded either.
+        { requirement: "Excellent communication skills", kind: "trait", status: "met", evidence: "Mentored two junior analysts." },
+        { requirement: "Self-starter", kind: "trait", status: "partly_met", evidence: "invented text" },
+        { requirement: "Team player", kind: "trait", status: "not_met", evidence: "" },
+      ],
+      gaps: [],
+      rewrites: [],
+    };
+    const result = applyGroundingCheck(output, CV, JD);
+    expect(result.traits).toEqual(["Excellent communication skills", "Self-starter", "Team player"]);
+    expect(result.requirements.map((r) => r.requirement)).toEqual(["Python"]);
+    expect(result.statusesForScore).toEqual(["met"]);
+    expect(result.ungroundedCount).toBe(0);
+  });
+
   it("drops a rewrite that adds facts, without counting it as ungrounded", () => {
     const output: LlmOutput = {
-      requirements: [{ requirement: "Docker", status: "met", evidence: "Docker on AWS" }],
+      requirements: [{ requirement: "Docker", kind: "skill", status: "met", evidence: "Docker on AWS" }],
       gaps: [],
       rewrites: [
         { original: "Deployed models with Docker on AWS.", rewritten: "Deployed models with Docker and Kubernetes on AWS." },

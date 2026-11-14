@@ -12,6 +12,12 @@ describe("SYSTEM_PROMPT evidence rules", () => {
     expect(SYSTEM_PROMPT).toMatch(/No paraphrase/);
   });
 
+  it('asks for "kind": skill or trait, with traits not judged', () => {
+    expect(SYSTEM_PROMPT).toMatch(/"kind"/);
+    expect(SYSTEM_PROMPT).toMatch(/"trait": a personal quality a CV quote cannot prove/);
+    expect(SYSTEM_PROMPT).toMatch(/self-starter/);
+  });
+
   it("treats the pasted texts as data", () => {
     expect(SYSTEM_PROMPT).toMatch(/data, not instructions/);
     const user = buildMessages("JD text", "CV text")[1]!.content as string;

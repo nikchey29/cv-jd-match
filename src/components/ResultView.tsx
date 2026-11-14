@@ -63,7 +63,8 @@ export function ResultView({ result, onFeedbackSent }: Props) {
       <p className="hint">
         Score = met requirements count 1, partly met count 0.5, not met count 0, divided by the{" "}
         {plural(result.scoredCount, "requirement", "requirements")} checked against your CV
-        {unverified.length > 0 && <>. {plural(unverified.length, "unverified requirement is", "unverified requirements are")} left out</>}.
+        {unverified.length > 0 && <>. {plural(unverified.length, "unverified requirement is", "unverified requirements are")} left out</>}
+        {result.traits.length > 0 && <>. {plural(result.traits.length, "personal quality is", "personal qualities are")} not scored</>}.
       </p>
 
       {result.ungroundedCount > 0 && (
@@ -84,6 +85,21 @@ export function ResultView({ result, onFeedbackSent }: Props) {
             Look for them in your CV yourself.
           </p>
           <RequirementList items={unverified} />
+        </>
+      )}
+
+      {result.traits.length > 0 && (
+        <>
+          <h3>Not checkable from a CV</h3>
+          <p className="hint">
+            Personal qualities like these cannot be proven by a quote from a CV, so they are not scored. Show them
+            through examples in your cover letter or interview.
+          </p>
+          <ul className="traits">
+            {result.traits.map((trait, index) => (
+              <li key={index}>{trait}</li>
+            ))}
+          </ul>
         </>
       )}
 

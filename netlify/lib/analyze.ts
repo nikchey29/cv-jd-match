@@ -60,6 +60,8 @@ export interface AnalysisResult {
   /** Requirements in the score's denominator (unverified ones are not). */
   scoredCount: number;
   requirements: MatchedRequirement[];
+  /** Traits such as "self-starter": not checkable from a CV, not scored. */
+  traits: string[];
   gaps: string[];
   rewrites: LlmRewrite[];
   requirementCount: number;
@@ -160,6 +162,7 @@ export async function analyzeMatch(
     score: computeScore(grounded.statusesForScore),
     scoredCount: grounded.statusesForScore.length,
     requirements: grounded.requirements,
+    traits: grounded.traits,
     gaps: grounded.gaps,
     rewrites: grounded.rewrites,
     requirementCount: output.requirements.length,

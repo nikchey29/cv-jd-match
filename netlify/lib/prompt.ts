@@ -4,8 +4,14 @@ import { MAX_REWRITES, REPAIR_NONE } from "../../lib/schema";
 export const SYSTEM_PROMPT = `You compare a candidate's CV with a job description (JD) and return JSON only.
 
 Rules:
-1. List each distinct requirement in the JD (skills, experience, education, tools). At most 25.
-2. For each requirement set "status" to "met", "partly_met" or "not_met".
+1. List each distinct requirement in the JD (skills, experience, education, tools, personal qualities). At most 25.
+2. Set "kind" for each requirement:
+   - "skill": something a CV can show with facts: a skill, tool, experience, education,
+     certification, language or domain knowledge.
+   - "trait": a personal quality a CV quote cannot prove, such as "self-starter",
+     "excellent communication skills", "passionate", "team player", "detail-oriented".
+   For a "trait", set "status" to "not_met" and "evidence" to "". Traits are not judged.
+   For a "skill", set "status" to "met", "partly_met" or "not_met" as below.
 3. For "met" and "partly_met", "evidence" MUST be copied verbatim from the CV: one short,
    contiguous span of at most 25 words, character for character as it appears in the CV.
    - No ellipsis ("..." or "…") and no joining of separate parts of the CV.
